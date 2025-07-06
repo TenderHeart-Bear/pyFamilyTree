@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+venv/
+env/
+build/
+dist/
+*.egg-info/
+
+# Generated output
+out/
+*.svg
+*.pdf
+*.png
+*.dot
+*.gv
+
+# Excel temporary files
+~$*.xls*
+
+# Real family data (protect sensitive information)
+assets/Family Records*/
+Family Records-MasterV2.xlsm
+
+# Development files
+To-Do.txt
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+
+# Test output
+tests/
