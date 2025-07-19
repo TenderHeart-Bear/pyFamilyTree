@@ -26,6 +26,9 @@ Family Records-MasterV2.xlsm
 # Development files
 To-Do.txt
 
+# Internal documentation and reports (may contain sensitive information)
+MEMORY_LEAKS_AND_NPE_REPORT.md
+
 # IDE/Editor files
 .vscode/
 .idea/
@@ -42,3 +45,7 @@ Desktop.ini
 
 # Test output
 tests/
+
+# User-specific config and settings
+config/
+*.json
