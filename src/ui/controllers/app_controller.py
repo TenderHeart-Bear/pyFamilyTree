@@ -93,16 +93,16 @@ class AppController:
                 self.main_window.update_status("Error loading data", enable_visualize=True)
     
     def handle_visualize_tree(self):
-        """Handle tree visualization"""
+        """Handle tree visualization request"""
         if not self.current_data_dir:
             if self.main_window:
-                self.main_window.show_error("Please load data first")
+                self.main_window.show_error("No data loaded. Please load data first.")
             return
         
-        # Show visualization parameters dialog
+        # Show dialog to get visualization parameters
         params = self._show_visualization_dialog()
         if not params:
-            return
+            return  # User cancelled
         
         try:
             # Create new session for this visualization
@@ -119,60 +119,36 @@ class AppController:
                 )
             else:
                 # Generate specific view
+                start_person = params.get('start_person', '')
                 self.current_graph = FamilyTreeGraph(
                     xml_data_dir=self.current_data_dir,
-                    start_person_name=params['start_person'] if params['start_person'] else None,
-                    generations_back=params['generations_back'],
-                    generations_forward=params['generations_forward']
+                    start_person_name=start_person if start_person else None,
+                    generations_back=params.get('generations_back', 0),
+                    generations_forward=params.get('generations_forward', 0)
                 )
             
+            # Generate visualization
             if self.current_graph and self.current_graph.characters:
-                # Generate the graph
-                output_file = self.current_graph.generate_graph()
+                # Get output format from settings
+                export_settings = self.settings.get('export', {})
+                export_format = export_settings.get('format', 'svg').lower()
                 
-                print(f"DEBUG: Generated SVG at {output_file}")
-                print(f"DEBUG: File exists: {os.path.exists(output_file)}")
+                # Generate the visualization
+                output_path = self.current_graph.generate_visualization(
+                    output_format=export_format,
+                    output_dir=session_dir
+                )
                 
-                # Create viewer with absolute path
-                if self.main_window:
-                    try:
-                        abs_path = os.path.abspath(output_file)
-                        print(f"DEBUG: Creating GraphViewer with path: {abs_path}")
-                        
-                        # Create viewer
-                        viewer = GraphViewer(
-                            master=self.main_window.content_frame,
-                            image_path=abs_path
-                        )
-                        print("DEBUG: GraphViewer created successfully")
-                        
-                        # Set up node click callback for interactive selection
-                        if hasattr(viewer, 'set_node_click_callback'):
-                            viewer.set_node_click_callback(self.handle_node_click)
-                            print("DEBUG: Node click callback set")
-                        
-                        self.main_window.set_tree_view(viewer)
-                        print("DEBUG: Tree view set in main window")
-                        
-                    except Exception as e:
-                        error_msg = f"Error creating visualization viewer:\n{str(e)}"
-                        print(f"DEBUG ERROR: {error_msg}")
-                        if hasattr(e, '__traceback__'):
-                            import traceback
-                            print("Stack trace:")
-                            print(traceback.format_exc())
-                        self.main_window.show_error(error_msg)
-                        return
-                
-                # Auto-export if enabled
-                if self.settings.get('export', {}).get('auto_export', False):
-                    self._export_visualization()
-                
-                # Update status
-                if self.main_window:
-                    self.main_window.update_status(
-                        f"Generated tree with {len(self.current_graph.characters)} characters"
-                    )
+                if output_path and os.path.exists(output_path):
+                    # Show the visualization
+                    self._show_visualization(output_path, export_format)
+                    
+                    # Auto-export if enabled
+                    if self.settings.get('export', {}).get('auto_export', False):
+                        self._auto_export_visualization(output_path, export_format)
+                else:
+                    if self.main_window:
+                        self.main_window.show_error("Failed to generate visualization")
             else:
                 if self.main_window:
                     # Provide more specific error message based on the situation
@@ -181,7 +157,7 @@ class AppController:
                     elif not params.get('generate_all', False) and params.get('start_person'):
                         # Person-specific search failed
                         self.main_window.show_error(
-                            f"Could not find person '{params['start_person']}' or no family members found.\n"
+                            f"Could not find person '{params.get('start_person', '')}' or no family members found.\n"
                             f"Please check the name spelling or try different generation settings."
                         )
                     else:
@@ -256,13 +232,10 @@ class AppController:
                     f"Reloaded data from {os.path.basename(file_path)} - {sheet_name}",
                     enable_visualize=True
                 )
-            
+        
         except Exception as e:
             error_msg = f"Error reloading dataset: {str(e)}"
             print(f"DEBUG ERROR: {error_msg}")
-            if hasattr(e, '__traceback__'):
-                import traceback
-                print(traceback.format_exc())
             if self.main_window:
                 self.main_window.show_error(error_msg)
     
@@ -284,33 +257,88 @@ class AppController:
         if self.main_window:
             self.main_window.show_coming_soon_dialog(f"{node_id} - {person_name}")
     
-    def _show_person_details(self, person_data: Dict[str, Any]):
-        """Display detailed person information in a dialog"""
-        if not self.main_window:
+    def _show_person_details(self, node_id: str):
+        """Show detailed information for a person"""
+        if not self.current_graph or not node_id:
             return
         
-        # Create detail dialog
-        detail_dialog = ctk.CTkToplevel(self.main_window)
-        detail_dialog.title("Person Details")
-        detail_dialog.geometry("400x600")
-        detail_dialog.resizable(True, True)
+        person_data = self.current_graph.characters.get(node_id)
+        if not person_data:
+            return
+        
+        # Create details window
+        details_window = ctk.CTkToplevel(self.main_window)
+        details_window.title("Person Details")
+        details_window.geometry("600x400")
+        details_window.resizable(True, True)
         
         # Make it modal
-        detail_dialog.grab_set()
-        detail_dialog.transient(self.main_window)
+        details_window.transient(self.main_window)
+        details_window.grab_set()
         
-        # Create scrollable frame for content
-        scrollable_frame = ctk.CTkScrollableFrame(detail_dialog)
-        scrollable_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        # Create scrollable frame
+        scroll_frame = ctk.CTkScrollableFrame(details_window)
+        scroll_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
-        # Add person information
-        self._add_person_info_to_frame(scrollable_frame, person_data)
+        # Person name as title
+        person_name = person_data.get('name', node_id)
+        title_label = ctk.CTkLabel(
+            scroll_frame,
+            text=person_name,
+            font=ctk.CTkFont(size=20, weight="bold")
+        )
+        title_label.pack(pady=(0, 20))
+        
+        # Create details grid
+        details_frame = ctk.CTkFrame(scroll_frame)
+        details_frame.pack(fill="x", padx=10, pady=5)
+        
+        # Define fields to display
+        fields = [
+            ('ID', 'id'),
+            ('Name', 'name'),
+            ('Birth Date', 'birthday'),
+            ('Birth Place', 'birth_place'),
+            ('Death Date', 'date_of_death'),
+            ('Death Place', 'place_of_burial'),
+            ('Marital Status', 'marital_status'),
+            ('Marriage Date', 'marriage_date'),
+            ('Marriage Place', 'place_of_marriage'),
+            ('Spouse', 'spouse'),
+            ('Father', 'father'),
+            ('Mother', 'mother')
+        ]
+        
+        row = 0
+        for label, field in fields:
+            value = person_data.get(field, '')
+            if value:  # Only show non-empty fields
+                # Label
+                label_widget = ctk.CTkLabel(
+                    details_frame,
+                    text=f"{label}:",
+                    font=ctk.CTkFont(size=14, weight="bold")
+                )
+                label_widget.grid(row=row, column=0, sticky="w", padx=10, pady=5)
+                
+                # Value
+                value_widget = ctk.CTkLabel(
+                    details_frame,
+                    text=str(value),
+                    font=ctk.CTkFont(size=14)
+                )
+                value_widget.grid(row=row, column=1, sticky="w", padx=10, pady=5)
+                
+                row += 1
+        
+        # Configure grid weights
+        details_frame.grid_columnconfigure(1, weight=1)
         
         # Close button
         close_button = ctk.CTkButton(
-            detail_dialog,
+            details_window,
             text="Close",
-            command=detail_dialog.destroy
+            command=details_window.destroy
         )
         close_button.pack(pady=10)
     

@@ -207,21 +207,13 @@ class FamilyTreeGraph(RelGraph):
         if children_found == 0:
             print(f"DEBUG: No children found for {person_id} ({self.all_id_to_name_map.get(person_id, 'Unknown')})")
 
-    def generate_graph(self, file_format: str = "svg") -> str:
-        """
-        Generate the family tree graph with optimized size settings.
-        
-        Args:
-            file_format: Output format (default: svg)
-            
-        Returns:
-            str: Path to the generated graph file
-        """
+    def _generate_svg(self) -> str:
+        """Generate the SVG file with optimized family tree layout"""
         # Create a new directed graph with optimized layout for smaller size
         self.dot = graphviz.Digraph(
             self.name,
             filename=self.dot_path,
-            format=file_format,
+            format='svg',
             engine='dot'
         )
         
@@ -243,7 +235,8 @@ class FamilyTreeGraph(RelGraph):
                       fontsize='10',
                       margin='0.2,0.1',
                       width='1.5',
-                      height='0.8')
+                      height='0.8',
+                      class_='node')  # Add class for JavaScript
         
         # Edge styling
         self.dot.attr('edge',
@@ -254,11 +247,9 @@ class FamilyTreeGraph(RelGraph):
         # Add all person nodes
         for person_id, person_data in self.characters.items():
             node_info = self._create_node_info(person_data)
-            # Add click functionality - for now shows "Coming Soon" 
+            # Add HTML-compatible attributes for interactivity
             self.dot.node(node_info["name"], 
                           label=node_info["label"],
-                          URL=f"javascript:showPersonDetails('{person_id}')",
-                          target="_blank",
                           tooltip=f"Click to view details for {person_data.get('name', person_id)}")
         
         # Add relationship edges
@@ -267,8 +258,8 @@ class FamilyTreeGraph(RelGraph):
         # Generate the output file
         try:
             self.dot.render(cleanup=True)
-            output_path = self.get_output_file_path(file_format)
-            print(f"DEBUG: Generated simple family tree: {output_path}")
+            output_path = self.get_output_file_path('svg')
+            print(f"DEBUG: Generated simple family tree SVG: {output_path}")
             print(f"DEBUG: File exists: {os.path.exists(output_path)}")
             return output_path
         except Exception as e:

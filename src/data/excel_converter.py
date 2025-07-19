@@ -212,6 +212,7 @@ def create_xml_from_excel_sheet(excel_file_path: str, sheet_name: str, output_xm
     Returns:
         str: Path to the directory containing generated XML files
     """
+    workbook = None
     try:
         # Create output directory if it doesn't exist
         os.makedirs(output_xml_dir, exist_ok=True)
@@ -319,7 +320,6 @@ def create_xml_from_excel_sheet(excel_file_path: str, sheet_name: str, output_xm
             except OSError as e:
                 print(f"Warning: Could not delete old XML file {file}: {e}")
         
-        workbook.close()
         return output_xml_dir
         
     except Exception as e:
@@ -328,5 +328,9 @@ def create_xml_from_excel_sheet(excel_file_path: str, sheet_name: str, output_xm
             print(traceback.format_exc())
         raise
     finally:
-        if 'workbook' in locals():
-            workbook.close() 
+        # Always close the workbook if it was created
+        if workbook is not None:
+            try:
+                workbook.close()
+            except Exception as close_error:
+                print(f"Warning: Error closing workbook: {close_error}") 

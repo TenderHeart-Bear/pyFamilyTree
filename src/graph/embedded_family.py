@@ -237,7 +237,8 @@ class EmbeddedFamilyTreeGraph(RelGraph):
                       width='2.0',
                       height='1.2',
                       color='black',
-                      penwidth='1')
+                      penwidth='1',
+                      class_='node')  # Add class for JavaScript
         
         # Edge styling - clean black lines
         self.dot.attr('edge',

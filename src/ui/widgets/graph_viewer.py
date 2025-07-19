@@ -210,9 +210,17 @@ class GraphViewer(ctk.CTkScrollableFrame):
         if not self.original_image:
             return
         
+        # Check if canvas exists and is properly initialized
+        if not hasattr(self, 'canvas') or not self.canvas:
+            return
+        
         # Get canvas dimensions
-        canvas_width = self.canvas.winfo_width()
-        canvas_height = self.canvas.winfo_height()
+        try:
+            canvas_width = self.canvas.winfo_width()
+            canvas_height = self.canvas.winfo_height()
+        except tk.TclError:
+            # Canvas might be destroyed
+            return
         
         # If canvas not properly sized yet, use default
         if canvas_width <= 1 or canvas_height <= 1:
@@ -233,6 +241,10 @@ class GraphViewer(ctk.CTkScrollableFrame):
     def display_image(self):
         """Display the scaled image on the canvas with proper zoom and pan support"""
         if not self.original_image:
+            return
+        
+        # Check if canvas exists and is properly initialized
+        if not hasattr(self, 'canvas') or not self.canvas:
             return
         
         try:
@@ -259,17 +271,25 @@ class GraphViewer(ctk.CTkScrollableFrame):
             
             # Update scroll region to include the entire image area
             # This allows for scrolling when the image is larger than the canvas
+            try:
+                canvas_width = self.canvas.winfo_width()
+                canvas_height = self.canvas.winfo_height()
+            except tk.TclError:
+                # Canvas might be destroyed
+                return
+            
             scroll_x1 = min(0, image_x)
             scroll_y1 = min(0, image_y)
-            scroll_x2 = max(self.canvas.winfo_width(), image_x + new_width)
-            scroll_y2 = max(self.canvas.winfo_height(), image_y + new_height)
+            scroll_x2 = max(canvas_width, image_x + new_width)
+            scroll_y2 = max(canvas_height, image_y + new_height)
             
             self.canvas.configure(scrollregion=(scroll_x1, scroll_y1, scroll_x2, scroll_y2))
             
             # Update status
-            self.status_label.configure(
-                text=f"Zoom: {self.zoom_factor:.1f}x | Size: {new_width}x{new_height}"
-            )
+            if hasattr(self, 'status_label') and self.status_label:
+                self.status_label.configure(
+                    text=f"Zoom: {self.zoom_factor:.1f}x | Size: {new_width}x{new_height}"
+                )
             
         except Exception as e:
             error_msg = f"Error displaying image: {str(e)}"
@@ -517,3 +537,19 @@ class GraphViewer(ctk.CTkScrollableFrame):
         except Exception as e:
             print(f"DEBUG: Error handling node click: {e}")
             return False 
+
+    def destroy(self):
+        """Clean up resources"""
+        # Clean up PIL Image objects
+        if hasattr(self, 'original_image') and self.original_image:
+            try:
+                self.original_image.close()
+            except:
+                pass
+            self.original_image = None
+        
+        # Clear PhotoImage reference
+        if hasattr(self, 'photo'):
+            self.photo = None
+        
+        super().destroy() 

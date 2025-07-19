@@ -39,6 +39,9 @@ class RelGraph(ABC):
         self.all_id_to_name_map: Dict = {}
         self.characters: Dict = {}
         self.id_to_name_map: Dict = {}
+        
+        # Default output format
+        self.output_format = "svg"
 
     def _configure_graph(self, dot: Graph):
         """Configure the graph's visual properties."""
@@ -89,18 +92,33 @@ class RelGraph(ABC):
         """Add edges for family relationships."""
         pass
 
-    def generate_graph(self) -> str:
+    def generate_graph(self, file_format: str = "svg") -> str:
         """
         Generate the family tree visualization.
         
+        Args:
+            file_format: Output format (svg, html, pdf, png)
+            
         Returns:
             str: Path to the generated output file
         """
+        # Always generate SVG first
+        svg_path = self._generate_svg()
+        
+        # If HTML format requested, generate HTML with embedded SVG
+        if file_format.lower() == 'html':
+            return self._generate_html(svg_path)
+        
+        # For other formats, return SVG path
+        return svg_path
+    
+    def _generate_svg(self) -> str:
+        """Generate the SVG file"""
         # Create output directory if it doesn't exist
         os.makedirs(self.output_dir, exist_ok=True)
         
         # Initialize graph
-        dot = Graph(comment='Family Tree', format=self.output_format)
+        dot = Graph(comment='Family Tree', format='svg')
         self._configure_graph(dot)
         
         # Add nodes and edges
@@ -109,9 +127,45 @@ class RelGraph(ABC):
         self._add_relationship_edges(dot)
         
         # Generate the graph
-        output_path = os.path.join(self.output_dir, f"{self.name}.{self.output_format}")
-        dot.render(output_path, cleanup=True)
-        return output_path
+        svg_path = os.path.join(self.output_dir, f"{self.name}.svg")
+        dot.render(svg_path, cleanup=True)
+        return svg_path
+    
+    def _generate_html(self, svg_path: str) -> str:
+        """Generate HTML file with embedded SVG and JavaScript interactivity"""
+        try:
+            from ..ui.html_viewer import HTMLFamilyTreeViewer
+            
+            # Create HTML viewer
+            html_viewer = HTMLFamilyTreeViewer(svg_path, self.characters)
+            
+            # Generate HTML file
+            html_path = html_viewer.generate_html()
+            
+            print(f"DEBUG: Generated interactive HTML: {html_path}")
+            return html_path
+            
+        except ImportError as e:
+            print(f"ERROR: Could not import HTMLFamilyTreeViewer: {e}")
+            return svg_path
+        except Exception as e:
+            print(f"ERROR: Could not generate HTML: {e}")
+            return svg_path
+    
+    def open_in_browser(self) -> None:
+        """Open the HTML version in the default web browser"""
+        try:
+            # Generate HTML if it doesn't exist
+            html_path = self.generate_graph('html')
+            
+            # Open in browser
+            from ..ui.html_viewer import HTMLFamilyTreeViewer
+            svg_path = self.get_svg_path()
+            viewer = HTMLFamilyTreeViewer(svg_path, self.characters)
+            viewer.open_in_browser()
+            
+        except Exception as e:
+            print(f"ERROR: Could not open in browser: {e}")
 
     @property
     def dot_path(self) -> str:
@@ -282,6 +336,10 @@ class RelGraph(ABC):
     def get_svg_path(self) -> str:
         """Get the SVG output file path"""
         return self.get_output_file_path("svg")
+    
+    def get_html_path(self) -> str:
+        """Get the HTML output file path"""
+        return self.get_output_file_path("html")
     
     def get_png_path(self) -> str:
         """Get the PNG output file path"""

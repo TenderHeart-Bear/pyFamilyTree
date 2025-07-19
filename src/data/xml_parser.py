@@ -23,12 +23,20 @@ class CharacterData:
         Returns:
             Dict[str, Any]: Dictionary containing parsed character data
         """
+        if tree is None:
+            print("Warning: Received None ElementTree")
+            return {}
+        
         root = tree.getroot()
+        if root is None:
+            print("Warning: XML tree has no root element")
+            return {}
+        
         character_data = {}
 
         # Extract all elements
         for child in root:
-            if child.text and child.text.strip():
+            if child is not None and child.text is not None and child.text.strip():
                 character_data[child.tag.lower()] = child.text.strip()
 
         # Ensure critical fields exist
@@ -88,6 +96,10 @@ class FamilyTreeData:
         Args:
             file_path: Path to the XML file to process
         """
+        if not file_path or not os.path.exists(file_path):
+            print(f"Warning: XML file '{file_path}' does not exist")
+            return
+        
         try:
             tree = et.parse(file_path)
             character_dict = CharacterData.parse_xml(tree)
@@ -130,6 +142,8 @@ class FamilyTreeData:
         Returns:
             Optional[Dict[str, Any]]: Character data or None if not found
         """
+        if not char_id:
+            return None
         return self.characters_by_id.get(char_id)
 
     def get_name(self, char_id: str) -> str:
@@ -142,6 +156,8 @@ class FamilyTreeData:
         Returns:
             str: Character name or a default string if not found
         """
+        if not char_id:
+            return "Unknown Character (No ID)"
         return self.id_to_name_map.get(char_id, f"Unknown Character ({char_id})")
 
     def get_all_characters(self) -> Dict[str, Dict[str, Any]]:
