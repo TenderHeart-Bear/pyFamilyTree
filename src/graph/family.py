@@ -274,6 +274,54 @@ class FamilyTreeGraph(RelGraph):
                 print(f"ERROR: Could not save DOT file either: {str(e2)}")
             raise e
 
+    def generate_visualization(self, output_format: str = "svg", output_dir: Optional[str] = None) -> str:
+        """
+        Generate the family tree visualization.
+
+        Args:
+            output_format: Output format (svg, html, pdf, png)
+            output_dir: Optional output directory
+        Returns:
+            str: Path to the generated output file
+        """
+        self.output_format = output_format
+        if output_dir:
+            self.output_dir = output_dir
+
+        try:
+            # Generate graph
+            svg_path = self._generate_svg()
+
+            # If HTML format requested, generate HTML
+            if output_format.lower() == 'html':
+                return self._generate_html(svg_path)
+
+            return svg_path
+        except Exception as e:
+            print(f"Error generating visualization: {e}")
+            raise
+    
+    def _generate_html(self, svg_path: str) -> str:
+        """Generate HTML file with embedded SVG and JavaScript interactivity"""
+        try:
+            from ..ui.html_viewer import HTMLFamilyTreeViewer
+            
+            # Create HTML viewer
+            html_viewer = HTMLFamilyTreeViewer(svg_path, self.characters)
+            
+            # Generate HTML file
+            html_path = html_viewer.generate_html()
+            
+            print(f"DEBUG: Generated interactive HTML: {html_path}")
+            return html_path
+            
+        except ImportError as e:
+            print(f"ERROR: Could not import HTMLFamilyTreeViewer: {e}")
+            return svg_path
+        except Exception as e:
+            print(f"ERROR: Could not generate HTML: {e}")
+            return svg_path
+    
     def _add_simple_relationships(self):
         """Add relationship edges using diamond union nodes for clean family structure"""
         processed_unions = set()
