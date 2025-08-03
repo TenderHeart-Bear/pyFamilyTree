@@ -186,7 +186,7 @@ class SVGViewer(ttk.Frame):
     
     def _point_in_element(self, x: float, y: float, element) -> bool:
         """
-        Check if a point is within an SVG element's bounds.
+        Check if a point is within an SVG element's bounds using precise collision detection.
         
         Args:
             x: X coordinate
@@ -197,18 +197,144 @@ class SVGViewer(ttk.Frame):
             bool: True if point is within element bounds
         """
         try:
-            # Get element attributes
-            elem_x = float(element.get('x', 0))
-            elem_y = float(element.get('y', 0))
-            elem_width = float(element.get('width', 0))
-            elem_height = float(element.get('height', 0))
-            
-            # Check if point is within rectangular bounds
-            return (elem_x <= x <= elem_x + elem_width and
-                    elem_y <= y <= elem_y + elem_height)
-                    
+            # Check different element types with proper collision detection
+            if element.tag.endswith('polygon'):
+                return self._point_in_polygon(x, y, element)
+            elif element.tag.endswith('rect'):
+                return self._point_in_rect(x, y, element)
+            elif element.tag.endswith('ellipse'):
+                return self._point_in_ellipse(x, y, element)
+            else:
+                # Fallback to bounding box for other elements
+                elem_x = float(element.get('x', 0))
+                elem_y = float(element.get('y', 0))
+                elem_width = float(element.get('width', 0))
+                elem_height = float(element.get('height', 0))
+                
+                return (elem_x <= x <= elem_x + elem_width and
+                        elem_y <= y <= elem_y + elem_height)
+                        
         except (ValueError, TypeError):
             return False
+    
+    def _point_in_polygon(self, x: float, y: float, polygon) -> bool:
+        """
+        Check if point is inside a polygon using ray casting algorithm.
+        """
+        points_str = polygon.get('points', '')
+        if not points_str:
+            return False
+        
+        # Parse polygon points
+        coords = []
+        for coord in points_str.replace(',', ' ').split():
+            try:
+                coords.append(float(coord))
+            except ValueError:
+                continue
+        
+        # Group into (x, y) pairs
+        points = [(coords[i], coords[i+1]) for i in range(0, len(coords)-1, 2)]
+        
+        if len(points) < 3:
+            return False
+        
+        # Ray casting algorithm with edge case handling
+        inside = False
+        j = len(points) - 1
+        
+        for i in range(len(points)):
+            xi, yi = points[i]
+            xj, yj = points[j]
+            
+            # Check if point is exactly on an edge
+            if self._point_on_edge(x, y, xi, yi, xj, yj):
+                return True
+            
+            if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
+                inside = not inside
+            j = i
+        
+        return inside
+    
+    def _point_on_edge(self, px: float, py: float, x1: float, y1: float, x2: float, y2: float) -> bool:
+        """
+        Check if a point lies on a line segment (edge of polygon).
+        """
+        # Calculate cross product to check if point is on the line
+        cross_product = (py - y1) * (x2 - x1) - (px - x1) * (y2 - y1)
+        
+        # If cross product is not zero, point is not on the line
+        if abs(cross_product) > 1e-10:  # Small epsilon for floating point precision
+            return False
+        
+        # Check if point is within the segment bounds
+        dot_product = (px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)
+        squared_distance = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)
+        
+        return 0 <= dot_product <= squared_distance
+    
+    def _point_in_rect(self, x: float, y: float, rect) -> bool:
+        """
+        Check if point is inside a rectangle with rounded corners support.
+        """
+        rect_x = float(rect.get('x', 0))
+        rect_y = float(rect.get('y', 0))
+        width = float(rect.get('width', 0))
+        height = float(rect.get('height', 0))
+        rx = float(rect.get('rx', 0))  # Corner radius
+        ry = float(rect.get('ry', 0))
+        
+        # Check if point is within rectangular bounds
+        if not (rect_x <= x <= rect_x + width and rect_y <= y <= rect_y + height):
+            return False
+        
+        # If no rounded corners, we're done
+        if rx <= 0 and ry <= 0:
+            return True
+        
+        # Handle rounded corners
+        if rx > 0 or ry > 0:
+            if ry <= 0:
+                ry = rx
+            if rx <= 0:
+                rx = ry
+                
+            # Check corner exclusion zones
+            corners = [
+                (rect_x + rx, rect_y + ry, x < rect_x + rx and y < rect_y + ry),
+                (rect_x + width - rx, rect_y + ry, x > rect_x + width - rx and y < rect_y + ry),
+                (rect_x + rx, rect_y + height - ry, x < rect_x + rx and y > rect_y + height - ry),
+                (rect_x + width - rx, rect_y + height - ry, x > rect_x + width - rx and y > rect_y + height - ry)
+            ]
+            
+            for cx, cy, in_corner in corners:
+                if in_corner:
+                    # Check if point is outside the corner radius
+                    dx = (x - cx) / rx
+                    dy = (y - cy) / ry
+                    if (dx * dx + dy * dy) > 1:
+                        return False
+        
+        return True
+    
+    def _point_in_ellipse(self, x: float, y: float, ellipse) -> bool:
+        """
+        Check if point is inside an ellipse.
+        """
+        cx = float(ellipse.get('cx', 0))
+        cy = float(ellipse.get('cy', 0))
+        rx = float(ellipse.get('rx', 0))
+        ry = float(ellipse.get('ry', 0))
+        
+        if rx <= 0 or ry <= 0:
+            return False
+        
+        # Ellipse equation: ((x-cx)/rx)² + ((y-cy)/ry)² <= 1
+        dx = (x - cx) / rx
+        dy = (y - cy) / ry
+        
+        return (dx * dx + dy * dy) <= 1
     
     def zoom_in(self):
         """Zoom in the view."""

@@ -58,31 +58,57 @@ class RelGraph(ABC):
             dot.attr('edge', class_='family-edge')
 
     def _add_node(self, dot: Graph, char_id: str, char_data: Dict):
-        """Add a node to the graph with proper styling."""
+        """Add a node to the graph with enhanced styling and precise collision boundaries."""
         name = char_data.get('name', 'Unknown')
         birth_date = char_data.get('birth_date', '')
         death_date = char_data.get('death_date', '')
+        marriage_date = char_data.get('marriage_date', '')
         
-        # Create label with basic info
-        label = f"{name}\\n{birth_date or '?'} - {death_date or ''}"
+        # Build enhanced label with symbols
+        label_parts = [name]
         
-        # Node attributes
+        if birth_date:
+            label_parts.append(f"★ {birth_date}")
+        
+        if death_date:
+            label_parts.append(f"✝ {death_date}")
+        elif char_data.get('died', '').strip().upper() not in ['L', '']:
+            label_parts.append("✝")  # Deceased indicator
+            
+        if marriage_date:
+            label_parts.append(f"♥ {marriage_date}")
+        
+        label = "\\n".join(label_parts)
+        
+        # Enhanced node attributes with better collision boundaries
         attrs = {
             'label': label,
-            'tooltip': name,  # Hover text
+            'tooltip': self._create_enhanced_tooltip(char_data),
             'fontname': 'Arial',
+            'fontsize': '10',
             'style': 'rounded,filled',
-            'fillcolor': 'white',
+            'fillcolor': self._get_node_color(char_data),
+            'color': '#2c3e50',  # Border color
+            'penwidth': '1.5',
+            'margin': '0.1,0.05',  # Tighter margins for better collision
+            'shape': 'box',
+            'width': '1.2',  # Minimum width for consistent collision
+            'height': '0.8'  # Minimum height for consistent collision
         }
         
-        # Add data attributes for SVG interactivity
+        # Enhanced SVG interactivity attributes
         if self.output_format == 'svg':
             attrs.update({
+                'id': f'node-{char_id}',
+                'class': 'family-node clickable',
                 'data-id': char_id,
                 'data-name': name,
                 'data-birth': birth_date or '',
                 'data-death': death_date or '',
-                'onclick': f"showDetails('{char_id}')"  # JavaScript function call
+                'data-marriage': marriage_date or '',
+                'onclick': f"handleNodeClick('{char_id}')",
+                'onmouseover': f"handleNodeHover('{char_id}')",
+                'onmouseout': f"handleNodeLeave('{char_id}')"
             })
         
         dot.node(char_id, **attrs)
@@ -343,4 +369,42 @@ class RelGraph(ABC):
     
     def get_png_path(self) -> str:
         """Get the PNG output file path"""
-        return self.get_output_file_path("png") 
+        return self.get_output_file_path("png")
+    
+    def _create_enhanced_tooltip(self, char_data: Dict[str, Any]) -> str:
+        """Create comprehensive tooltip text for enhanced nodes."""
+        name = char_data.get('name', 'Unknown')
+        tooltip_parts = [f"Name: {name}"]
+        
+        if char_data.get('birth_date'):
+            tooltip_parts.append(f"Born: {char_data['birth_date']}")
+            
+        if char_data.get('death_date'):
+            tooltip_parts.append(f"Died: {char_data['death_date']}")
+        elif char_data.get('died', '').strip().upper() not in ['L', '']:
+            tooltip_parts.append("Status: Deceased")
+        else:
+            tooltip_parts.append("Status: Living")
+            
+        if char_data.get('marriage_date'):
+            tooltip_parts.append(f"Married: {char_data['marriage_date']}")
+            
+        if char_data.get('spouse_id'):
+            tooltip_parts.append(f"Spouse ID: {char_data['spouse_id']}")
+            
+        return " | ".join(tooltip_parts)
+    
+    def _get_node_color(self, char_data: Dict[str, Any]) -> str:
+        """
+        Determine node color based on character data for better visual distinction.
+        
+        Returns:
+            Hex color string
+        """
+        # Color coding: Living vs deceased
+        if char_data.get('death_date') or (
+            char_data.get('died', '').strip().upper() not in ['L', '']
+        ):
+            return '#ecf0f1'  # Light gray for deceased
+        else:
+            return '#e8f8f5'  # Light green for living
