@@ -95,8 +95,9 @@ class FamilyTreeGraph(RelGraph):
         }
 
     def _add_relationship_edges(self, dot: graphviz.Graph):
-        """Deprecated - using simple relationships now"""
-        pass
+        """Add relationship edges using the simple relationships approach"""
+        # Call the simple relationships method that this class uses
+        self._add_simple_relationships(dot)
 
     def _select_relevant_characters(self, start_person_name: str, generations_back: int, generations_forward: int) -> None:
         """Select characters relevant to the visualization based on parameters."""
@@ -217,14 +218,15 @@ class FamilyTreeGraph(RelGraph):
             engine='dot'
         )
         
-        # Configure graph for smaller output size
+        # Configure graph for complete content display
         self.dot.attr(rankdir='TB')          # Top to bottom layout
         self.dot.attr(nodesep='0.5')         # Reduced horizontal spacing
         self.dot.attr(ranksep='0.8')         # Reduced vertical spacing
         self.dot.attr(concentrate='true')    # Merge edges where possible
-        self.dot.attr(size='16,12')          # Maximum size limit
-        self.dot.attr(dpi='96')              # Standard DPI to prevent huge images
-        self.dot.attr(ratio='auto')          # Let graphviz choose ratio
+        # Removed size constraint to allow full content to be displayed
+        self.dot.attr(dpi='72')              # Lower DPI to prevent over-scaling
+        self.dot.attr(ratio='fill')          # Fill the available space
+        self.dot.attr(overlap='false')       # Prevent node overlap
         
         # Node styling - smaller nodes
         self.dot.attr('node', 
@@ -274,8 +276,11 @@ class FamilyTreeGraph(RelGraph):
                 print(f"ERROR: Could not save DOT file either: {str(e2)}")
             raise e
 
-    def _add_simple_relationships(self):
+    def _add_simple_relationships(self, dot=None):
         """Add relationship edges using diamond union nodes for clean family structure"""
+        # Use the passed dot parameter or fall back to self.dot for backward compatibility
+        if dot is None:
+            dot = self.dot
         processed_unions = set()
         
         # First, create diamond union nodes for marriages and connect parents
@@ -288,7 +293,7 @@ class FamilyTreeGraph(RelGraph):
                     
                     # Create diamond union node with consistent ID
                     union_id = f"union_{union_key[0]}_{union_key[1]}"
-                    self.dot.node(union_id, 
+                    dot.node(union_id, 
                                  label="", 
                                  shape="diamond", 
                                  width="0.2", 
@@ -298,7 +303,7 @@ class FamilyTreeGraph(RelGraph):
                     
                     # Create invisible spacer node to force spouses to be adjacent
                     spacer_id = f"spacer_{union_key[0]}_{union_key[1]}"
-                    self.dot.node(spacer_id,
+                    dot.node(spacer_id,
                                  label="",
                                  shape="point",
                                  width="0.01",
@@ -307,7 +312,7 @@ class FamilyTreeGraph(RelGraph):
                     
                     # Create cluster to group spouses together
                     cluster_name = f"cluster_marriage_{union_key[0]}_{union_key[1]}"
-                    with self.dot.subgraph(name=cluster_name) as marriage_cluster:
+                    with dot.subgraph(name=cluster_name) as marriage_cluster:
                         marriage_cluster.attr(style="invis")
                         marriage_cluster.attr(rank="same")
                         
@@ -321,8 +326,8 @@ class FamilyTreeGraph(RelGraph):
                         marriage_cluster.edge(spacer_id, union_key[1], style="invis")
                     
                     # Connect spouses to diamond (Parent1 -- Diamond -- Parent2)
-                    self.dot.edge(union_key[0], union_id, arrowhead="none")
-                    self.dot.edge(union_key[1], union_id, arrowhead="none")
+                    dot.edge(union_key[0], union_id, arrowhead="none")
+                    dot.edge(union_key[1], union_id, arrowhead="none")
         
         # Second, find children groups and create circle nodes
         union_children = {}  # Maps union_id to list of children
@@ -346,7 +351,7 @@ class FamilyTreeGraph(RelGraph):
                 children_id = f"children_{union_id}"
                 
                 # Create circle node for children group
-                self.dot.node(children_id,
+                dot.node(children_id,
                              label="",
                              shape="circle",
                              width="0.1",
@@ -355,11 +360,11 @@ class FamilyTreeGraph(RelGraph):
                              fillcolor="lightblue")
                 
                 # Connect union diamond to children circle
-                self.dot.edge(union_id, children_id, arrowhead="none", color="darkblue")
+                dot.edge(union_id, children_id, arrowhead="none", color="darkblue")
                 
                 # Create cluster for children to keep them together
                 children_cluster_name = f"cluster_children_{union_id}"
-                with self.dot.subgraph(name=children_cluster_name) as children_cluster:
+                with dot.subgraph(name=children_cluster_name) as children_cluster:
                     children_cluster.attr(style="invis")
                     children_cluster.attr(rank="same")
                     
@@ -369,7 +374,7 @@ class FamilyTreeGraph(RelGraph):
                     
                     # Connect children circle to each child (green lines to top of child nodes)
                     for child_id in children:
-                        self.dot.edge(children_id, child_id, headport="n", color="green")
+                        dot.edge(children_id, child_id, headport="n", color="green")
         
         # Handle single-parent children (if any)
         for person_id, person_data in self.characters.items():
@@ -380,11 +385,11 @@ class FamilyTreeGraph(RelGraph):
             if (father_id and father_id in self.characters and 
                 (not mother_id or mother_id not in self.characters)):
                 # Father only
-                self.dot.edge(father_id, person_id, style="dashed", color="gray")
+                dot.edge(father_id, person_id, style="dashed", color="gray")
             elif (mother_id and mother_id in self.characters and 
                   (not father_id or father_id not in self.characters)):
                 # Mother only
-                self.dot.edge(mother_id, person_id, style="dashed", color="gray")
+                dot.edge(mother_id, person_id, style="dashed", color="gray")
 
     def _add_person_node(self, graph: graphviz.Digraph, char_id: str, generation: int):
         """Add a person node to the graph - simplified version"""
@@ -542,10 +547,11 @@ class FamilyTreeGraph(RelGraph):
         self.dot.attr(ranksep='0.8')  # Reduced rank separation
         self.dot.attr(concentrate='true')  # Merge edges where possible
         
-        # Set reasonable graph size limits
-        self.dot.attr(size='16,12')  # Maximum size in inches (width, height)
-        self.dot.attr(dpi='96')  # Standard screen DPI
-        self.dot.attr(ratio='auto')  # Let graphviz choose ratio
+        # Removed size constraint to allow full content to be displayed
+        self.dot.attr(dpi='72')  # Lower DPI to prevent over-scaling
+        self.dot.attr(ratio='fill')  # Fill the available space
+        self.dot.attr(overlap='false')  # Prevent node overlap
+        self.dot.attr(splines='ortho')  # Use orthogonal edges for cleaner layout
         
         # Configure node defaults for smaller, cleaner appearance
         self.dot.attr('node', 
@@ -562,8 +568,5 @@ class FamilyTreeGraph(RelGraph):
         self.dot.attr('edge', 
                      fontsize='8',
                      fontname='Arial')
-        
-        # Simplified layout optimization
-        self.dot.attr(overlap='false')  # Prevent node overlap
 
  

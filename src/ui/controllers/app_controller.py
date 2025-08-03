@@ -40,6 +40,9 @@ class AppController:
         self._setup_event_handlers()
         self._apply_settings()
         
+        # Disable Open in Browser button initially
+        self.main_window.disable_open_browser_button()
+    
     def run(self):
         """Start the application"""
         if self.main_window:
@@ -52,7 +55,8 @@ class AppController:
                 on_data_loaded=self.handle_load_data,
                 on_visualize=self.handle_visualize_tree,
                 on_settings=self.handle_settings,
-                on_reload=self.handle_reload_data
+                on_reload=self.handle_reload_data,
+                on_open_browser=self._open_visualization_in_browser
             )
     
     def handle_load_data(self, file_path: str, sheet_name: str):
@@ -134,9 +138,8 @@ class AppController:
                 export_format = export_settings.get('format', 'svg').lower()
                 
                 # Generate the visualization
-                output_path = self.current_graph.generate_visualization(
-                    output_format=export_format,
-                    output_dir=session_dir
+                output_path = self.current_graph.generate_graph(
+                    file_format=export_format
                 )
                 
                 if output_path and os.path.exists(output_path):
@@ -173,6 +176,124 @@ class AppController:
             if self.main_window:
                 self.main_window.show_error(error_msg)
     
+    def _show_visualization(self, output_path: str, export_format: str):
+        """Show the generated visualization in the main window"""
+        try:
+            print(f"DEBUG: Showing visualization: {output_path}")
+            print(f"DEBUG: Export format: {export_format}")
+            
+            if not self.main_window:
+                print("DEBUG: No main window available")
+                return
+            
+            # Import visualization widgets
+            from ..widgets import SVGViewer, EmbeddedHTMLViewer
+            
+            # Choose appropriate viewer based on format
+            if export_format.lower() == 'html':
+                # Use embedded HTML viewer for HTML files
+                viewer = EmbeddedHTMLViewer(self.main_window.content_frame, output_path)
+            else:
+                # Use SVG viewer for SVG and other formats
+                viewer = SVGViewer(
+                    self.main_window.content_frame, 
+                    output_path,
+                    character_data=self.current_graph.characters if self.current_graph else {}
+                )
+                
+                # Set up callbacks for SVG viewer
+                viewer.set_node_click_callback(self.handle_node_click)
+            
+            # Set the viewer in the main window
+            self.main_window.set_tree_view(viewer)
+            
+            # Enable the Open in Browser button since we have a visualization
+            self.main_window.enable_open_browser_button()
+            
+            print(f"DEBUG: Visualization displayed successfully")
+            
+        except Exception as e:
+            error_msg = f"Error showing visualization: {str(e)}"
+            print(f"DEBUG ERROR: {error_msg}")
+            if self.main_window:
+                self.main_window.show_error(error_msg)
+                # Disable Open in Browser button on error
+                self.main_window.disable_open_browser_button()
+    
+    def _open_visualization_in_browser(self):
+        """Open the current visualization in a web browser"""
+        try:
+            print("DEBUG: Opening visualization in browser")
+            
+            if not self.current_graph:
+                print("DEBUG: No current graph available")
+                if self.main_window:
+                    self.main_window.show_error("No visualization available to open in browser")
+                return
+            
+            # Generate HTML version
+            html_path = self.current_graph.generate_graph('html')
+            print(f"DEBUG: Generated HTML at: {html_path}")
+            
+            if not os.path.exists(html_path):
+                print(f"DEBUG: HTML file not found: {html_path}")
+                if self.main_window:
+                    self.main_window.show_error(f"Could not generate HTML file: {html_path}")
+                return
+            
+            # Open in browser using webbrowser module
+            import webbrowser
+            file_url = f"file://{os.path.abspath(html_path)}"
+            print(f"DEBUG: Opening URL: {file_url}")
+            webbrowser.open(file_url)
+            
+            print("DEBUG: Browser opened successfully")
+            
+        except Exception as e:
+            error_msg = f"Error opening in browser: {str(e)}"
+            print(f"DEBUG ERROR: {error_msg}")
+            if self.main_window:
+                self.main_window.show_error(error_msg)
+    
+    def _auto_export_visualization(self, output_path: str, export_format: str):
+        """Auto-export the visualization if enabled in settings"""
+        try:
+            print(f"DEBUG: Auto-exporting visualization: {output_path}")
+            
+            # Get export settings
+            export_settings = self.settings.get('export', {})
+            auto_export = export_settings.get('auto_export', False)
+            export_dir = export_settings.get('directory', '')
+            
+            if not auto_export or not export_dir:
+                print("DEBUG: Auto-export disabled or no export directory")
+                return
+            
+            # Create export directory if it doesn't exist
+            os.makedirs(export_dir, exist_ok=True)
+            
+            # Generate export filename
+            base_name = os.path.splitext(os.path.basename(output_path))[0]
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            export_filename = f"{base_name}_{timestamp}.{export_format}"
+            export_path = os.path.join(export_dir, export_filename)
+            
+            # Copy the file to export directory
+            import shutil
+            shutil.copy2(output_path, export_path)
+            
+            print(f"DEBUG: Auto-exported to: {export_path}")
+            
+            # Show success message
+            if self.main_window:
+                self.main_window.show_error(f"Visualization auto-exported to:\n{export_path}")
+                
+        except Exception as e:
+            error_msg = f"Error auto-exporting visualization: {str(e)}"
+            print(f"DEBUG ERROR: {error_msg}")
+            if self.main_window:
+                self.main_window.show_error(error_msg)
+
     def _show_visualization_dialog(self) -> Optional[Dict[str, Any]]:
         """Show dialog to get visualization parameters"""
         if self.main_window:
@@ -240,107 +361,116 @@ class AppController:
                 self.main_window.show_error(error_msg)
     
     def handle_node_click(self, node_id: str):
-        """Handle node click for interactive person selection"""
-        if not self.current_graph:
-            return
-        
-        # Get person data from the graph for context
-        person_data = self.current_graph.characters.get(node_id)
-        if not person_data:
-            print(f"DEBUG: No data found for node ID: {node_id}")
-            return
-        
-        # For now, show "Coming Soon" dialog - detailed view is a future feature
-        person_name = person_data.get('name', node_id)
-        print(f"DEBUG: Node clicked: {node_id} ({person_name})")
-        
-        if self.main_window:
-            self.main_window.show_coming_soon_dialog(f"{node_id} - {person_name}")
+        """Handle node click events from the visualization"""
+        try:
+            print(f"DEBUG: Node clicked: {node_id}")
+            
+            if not self.current_graph or not self.current_graph.characters:
+                print("DEBUG: No current graph or characters available")
+                return
+            
+            # Get character data for the clicked node
+            char_data = self.current_graph.characters.get(node_id)
+            if not char_data:
+                print(f"DEBUG: No character data found for node {node_id}")
+                return
+            
+            # Display character information in the main window's node info panel
+            self._show_person_details(node_id)
+            
+        except Exception as e:
+            print(f"DEBUG ERROR: Error handling node click: {str(e)}")
+            if self.main_window:
+                self.main_window.show_error(f"Error handling node click: {str(e)}")
     
     def _show_person_details(self, node_id: str):
-        """Show detailed information for a person"""
-        if not self.current_graph or not node_id:
-            return
-        
-        person_data = self.current_graph.characters.get(node_id)
-        if not person_data:
-            return
-        
-        # Create details window
-        details_window = ctk.CTkToplevel(self.main_window)
-        details_window.title("Person Details")
-        details_window.geometry("600x400")
-        details_window.resizable(True, True)
-        
-        # Make it modal
-        details_window.transient(self.main_window)
-        details_window.grab_set()
-        
-        # Create scrollable frame
-        scroll_frame = ctk.CTkScrollableFrame(details_window)
-        scroll_frame.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        # Person name as title
-        person_name = person_data.get('name', node_id)
-        title_label = ctk.CTkLabel(
-            scroll_frame,
-            text=person_name,
-            font=ctk.CTkFont(size=20, weight="bold")
-        )
-        title_label.pack(pady=(0, 20))
-        
-        # Create details grid
-        details_frame = ctk.CTkFrame(scroll_frame)
-        details_frame.pack(fill="x", padx=10, pady=5)
-        
-        # Define fields to display
-        fields = [
-            ('ID', 'id'),
-            ('Name', 'name'),
-            ('Birth Date', 'birthday'),
-            ('Birth Place', 'birth_place'),
-            ('Death Date', 'date_of_death'),
-            ('Death Place', 'place_of_burial'),
-            ('Marital Status', 'marital_status'),
-            ('Marriage Date', 'marriage_date'),
-            ('Marriage Place', 'place_of_marriage'),
-            ('Spouse', 'spouse'),
-            ('Father', 'father'),
-            ('Mother', 'mother')
-        ]
-        
-        row = 0
-        for label, field in fields:
-            value = person_data.get(field, '')
-            if value:  # Only show non-empty fields
-                # Label
-                label_widget = ctk.CTkLabel(
-                    details_frame,
-                    text=f"{label}:",
-                    font=ctk.CTkFont(size=14, weight="bold")
-                )
-                label_widget.grid(row=row, column=0, sticky="w", padx=10, pady=5)
+        """Display detailed information about a person in the node info panel"""
+        try:
+            if not self.current_graph or not self.current_graph.characters:
+                return
+            
+            # Get character data
+            char_data = self.current_graph.characters.get(node_id)
+            if not char_data:
+                return
+            
+            # Try to read the original XML file for this character
+            xml_content = self._get_original_xml_content(node_id)
+            
+            if xml_content:
+                # Display XML content
+                info_lines = []
+                info_lines.append(f"=== XML Data for {node_id} ===")
+                info_lines.append("")
+                info_lines.append(xml_content)
+                info_lines.append("")
+                info_lines.append("=== End XML Data ===")
+            else:
+                # Fall back to processed character data
+                info_lines = []
+                info_lines.append(f"Name: {char_data.get('name', 'Unknown')}")
+                info_lines.append(f"ID: {node_id}")
+                info_lines.append("")
                 
-                # Value
-                value_widget = ctk.CTkLabel(
-                    details_frame,
-                    text=str(value),
-                    font=ctk.CTkFont(size=14)
-                )
-                value_widget.grid(row=row, column=1, sticky="w", padx=10, pady=5)
+                # Add birth information
+                birth_date = char_data.get('birth_date') or char_data.get('birthday')
+                if birth_date:
+                    info_lines.append(f"Birth: {birth_date}")
                 
-                row += 1
-        
-        # Configure grid weights
-        details_frame.grid_columnconfigure(1, weight=1)
-        
-        # Close button
-        close_button = ctk.CTkButton(
-            details_window,
-            text="Close",
-            command=details_window.destroy
-        )
-        close_button.pack(pady=10)
+                # Add marriage information
+                marriage_date = char_data.get('marriage_date') or char_data.get('marriage')
+                if marriage_date:
+                    info_lines.append(f"Marriage: {marriage_date}")
+                
+                # Add death information
+                death_date = char_data.get('death_date') or char_data.get('date_of_death') or char_data.get('death')
+                if death_date:
+                    info_lines.append(f"Death: {death_date}")
+                
+                # Add spouse information
+                spouse_id = char_data.get('spouse_id')
+                if spouse_id and spouse_id in self.current_graph.characters:
+                    spouse_data = self.current_graph.characters[spouse_id]
+                    spouse_name = spouse_data.get('name', spouse_id)
+                    info_lines.append("")
+                    info_lines.append(f"Spouse: {spouse_name}")
+            
+            # Display the information in the main window
+            info_text = "\n".join(info_lines)
+            if self.main_window:
+                self.main_window.show_person_info(info_text)
+            
+        except Exception as e:
+            print(f"DEBUG ERROR: Error showing person details: {str(e)}")
+            if self.main_window:
+                self.main_window.show_error(f"Error showing person details: {str(e)}")
+    
+    def _get_original_xml_content(self, node_id: str) -> str:
+        """Get the original XML content for a character ID"""
+        try:
+            # Check if we have a current graph with XML data directory
+            if not self.current_graph or not hasattr(self.current_graph, 'xml_data_dir'):
+                return None
+            
+            # Try to find the XML file for this character
+            xml_file_path = os.path.join(self.current_graph.xml_data_dir, f"{node_id}.xml")
+            
+            if os.path.exists(xml_file_path):
+                with open(xml_file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                return content
+            else:
+                print(f"DEBUG: XML file not found: {xml_file_path}")
+                return None
+                
+        except Exception as e:
+            print(f"DEBUG ERROR: Error reading XML file for {node_id}: {str(e)}")
+            return None
+            
+        except Exception as e:
+            print(f"DEBUG ERROR: Error showing person details: {str(e)}")
+            if self.main_window:
+                self.main_window.show_error(f"Error showing person details: {str(e)}")
     
     def _add_person_info_to_frame(self, frame: ctk.CTkFrame, person_data: Dict[str, Any]):
         """Add formatted person information to the frame"""
