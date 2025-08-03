@@ -535,13 +535,18 @@ class AppController:
                 webbrowser.open(f"file://{os.path.abspath(output_path)}")
                 print(f"DEBUG: Opened HTML visualization in browser")
             elif export_format.lower() in ['svg', 'png']:
-                # Show in embedded viewer
+                # Show in embedded viewer or fallback to browser
                 if self.main_window:
                     try:
-                        # Try to show in embedded viewer
-                        viewer = GraphViewer(self.main_window, output_path)
-                        viewer.show()
-                        print(f"DEBUG: Displayed visualization in embedded viewer")
+                        # Check if main window has a show_visualization method
+                        if hasattr(self.main_window, 'show_visualization'):
+                            self.main_window.show_visualization(output_path)
+                            print(f"DEBUG: Displayed visualization in main window")
+                        else:
+                            # Fallback to system default
+                            import webbrowser
+                            webbrowser.open(f"file://{os.path.abspath(output_path)}")
+                            print(f"DEBUG: Opened visualization with system default")
                     except Exception as viewer_error:
                         print(f"DEBUG: Could not show in embedded viewer: {viewer_error}")
                         # Fallback to system default
