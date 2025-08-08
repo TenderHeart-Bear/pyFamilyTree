@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Tree Visualizer - Web Version</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+
+        .card h2 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+
+        .status.info {
+            background: #bee3f8;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+
+        .visualization-container {
+            grid-column: 1 / -1;
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        .visualization-frame {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f7fafc;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 10px;
+            transform: scale(1.2);
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            font-weight: normal;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            font-weight: normal;
+            cursor: pointer;
+        }
+
+        .radio-group input[type="radio"] {
+            margin-right: 8px;
+            transform: scale(1.1);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌳 Family Tree Visualizer</h1>
+            <p>Web-based family tree visualization tool with offline capabilities</p>
+        </div>
+
+        <div id="status-message"></div>
+
+        <div class="main-content">
+            <!-- File Upload Section -->
+            <div class="card">
+                <h2>📁 Upload Family Data</h2>
+                <form id="upload-form">
+                    <div class="form-group">
+                        <label for="file-input">Select Excel File:</label>
+                        <input type="file" id="file-input" class="form-control" accept=".xlsx,.xls" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sheet-name">Sheet Name:</label>
+                        <input type="text" id="sheet-name" class="form-control" placeholder="Enter sheet name" required>
+                    </div>
+                    <button type="submit" class="btn" id="upload-btn">
+                        📤 Upload & Process
+                    </button>
+                </form>
+            </div>
+
+            <!-- Visualization Settings -->
+            <div class="card">
+                <h2>🎨 Visualization Settings</h2>
+                <form id="visualize-form">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="generate-all" name="generate_all">
+                        <label for="generate-all">Generate Complete Tree</label>
+                    </div>
+                    
+                    <div id="specific-settings">
+                        <div class="form-group">
+                            <label for="start-person">Starting Person (optional):</label>
+                            <select id="start-person" class="form-control">
+                                <option value="">Select a person...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="generations-back">Generations Back (ancestors):</label>
+                            <input type="number" id="generations-back" class="form-control" value="0" min="0">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="generations-forward">Generations Forward (descendants):</label>
+                            <input type="number" id="generations-forward" class="form-control" value="0" min="0">
+                        </div>
+                    </div>
+                    
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="style" value="1" checked>
+                            Classic Style
+                        </label>
+                        <label>
+                            <input type="radio" name="style" value="2">
+                            Embedded Style
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="btn" id="visualize-btn" disabled>
+                        🎯 Generate Visualization
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Visualization Display -->
+        <div class="visualization-container hidden" id="visualization-container">
+            <h2>🌳 Family Tree Visualization</h2>
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Generating visualization...</p>
+            </div>
+            <iframe id="visualization-frame" class="visualization-frame hidden"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentCharacters = [];
+        let currentStatus = {};
+
+        // DOM elements
+        const uploadForm = document.getElementById('upload-form');
+        const visualizeForm = document.getElementById('visualize-form');
+        const fileInput = document.getElementById('file-input');
+        const sheetNameInput = document.getElementById('sheet-name');
+        const startPersonSelect = document.getElementById('start-person');
+        const generateAllCheckbox = document.getElementById('generate-all');
+        const specificSettings = document.getElementById('specific-settings');
+        const uploadBtn = document.getElementById('upload-btn');
+        const visualizeBtn = document.getElementById('visualize-btn');
+        const statusMessage = document.getElementById('status-message');
+        const visualizationContainer = document.getElementById('visualization-container');
+        const loading = document.getElementById('loading');
+        const visualizationFrame = document.getElementById('visualization-frame');
+
+        // Event listeners
+        uploadForm.addEventListener('submit', handleFileUpload);
+        visualizeForm.addEventListener('submit', handleVisualization);
+        generateAllCheckbox.addEventListener('change', toggleSpecificSettings);
+        
+        // Initialize
+        updateStatus();
+
+        function showStatus(message, type = 'info') {
+            statusMessage.innerHTML = `<div class="status ${type}">${message}</div>`;
+            setTimeout(() => {
+                statusMessage.innerHTML = '';
+            }, 5000);
+        }
+
+        function updateStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    currentStatus = data;
+                    if (data.data_loaded) {
+                        visualizeBtn.disabled = false;
+                        showStatus(`Data loaded: ${data.current_file} (${data.character_count} characters)`, 'success');
+                    } else {
+                        visualizeBtn.disabled = true;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating status:', error);
+                });
+        }
+
+        function toggleSpecificSettings() {
+            const isChecked = generateAllCheckbox.checked;
+            specificSettings.style.display = isChecked ? 'none' : 'block';
+        }
+
+        async function handleFileUpload(event) {
+            event.preventDefault();
+            
+            const formData = new FormData();
+            const file = fileInput.files[0];
+            const sheetName = sheetNameInput.value.trim();
+            
+            if (!file) {
+                showStatus('Please select a file', 'error');
+                return;
+            }
+            
+            if (!sheetName) {
+                showStatus('Please enter a sheet name', 'error');
+                return;
+            }
+            
+            formData.append('file', file);
+            formData.append('sheet_name', sheetName);
+            
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Processing...';
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus(result.message, 'success');
+                    currentCharacters = result.characters;
+                    populateCharacterSelect();
+                    updateStatus();
+                } else {
+                    showStatus(result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error uploading file: ' + error.message, 'error');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '📤 Upload & Process';
+            }
+        }
+
+        function populateCharacterSelect() {
+            startPersonSelect.innerHTML = '<option value="">Select a person...</option>';
+            currentCharacters.forEach(character => {
+                const option = document.createElement('option');
+                option.value = character.id;
+                option.textContent = character.name;
+                startPersonSelect.appendChild(option);
+            });
+        }
+
+        async function handleVisualization(event) {
+            event.preventDefault();
+            
+            const generateAll = generateAllCheckbox.checked;
+            const startPerson = startPersonSelect.value;
+            const generationsBack = parseInt(document.getElementById('generations-back').value) || 0;
+            const generationsForward = parseInt(document.getElementById('generations-forward').value) || 0;
+            const style = document.querySelector('input[name="style"]:checked').value;
+            
+            if (!generateAll && !startPerson) {
+                showStatus('Please select a starting person or check "Generate Complete Tree"', 'error');
+                return;
+            }
+            
+            visualizeBtn.disabled = true;
+            visualizeBtn.textContent = 'Generating...';
+            
+            // Show visualization container and loading
+            visualizationContainer.classList.remove('hidden');
+            loading.classList.remove('hidden');
+            visualizationFrame.classList.add('hidden');
+            
+            try {
+                const response = await fetch('/visualize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        generate_all: generateAll,
+                        start_person: startPerson,
+                        generations_back: generationsBack,
+                        generations_forward: generationsForward,
+                        style: style
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus(`Visualization generated successfully with ${result.character_count} characters`, 'success');
+                    
+                    // Display the visualization
+                    const filename = result.visualization_path.split('/').pop();
+                    visualizationFrame.src = `/visualization/${filename}`;
+                    loading.classList.add('hidden');
+                    visualizationFrame.classList.remove('hidden');
+                } else {
+                    showStatus(result.error, 'error');
+                    visualizationContainer.classList.add('hidden');
+                }
+            } catch (error) {
+                showStatus('Error generating visualization: ' + error.message, 'error');
+                visualizationContainer.classList.add('hidden');
+            } finally {
+                visualizeBtn.disabled = false;
+                visualizeBtn.textContent = '🎯 Generate Visualization';
+            }
+        }
+
+        // Auto-update status every 30 seconds
+        setInterval(updateStatus, 30000);
+    </script>
+</body>
+</html> 

@@ -5,6 +5,10 @@ customtkinter>=5.2.0
 cairosvg>=2.7.1
 pywebview>=4.0.0
 
+# Web application dependencies
+flask>=2.3.0
+werkzeug>=2.3.0
+
 # XML processing
 lxml>=4.9.0
 

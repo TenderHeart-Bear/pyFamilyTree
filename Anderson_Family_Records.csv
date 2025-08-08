@@ -1,0 +1,13 @@
+ID,First Name,Middle Name,Last Name,Birthday,Deceased Status,Marital Status,Marriage Date,Place of Marriage,Spouse Name,Spouse ID,Father Name,Father ID,Mother Name,Mother ID,Birth Place
+A001,James,Michael,Anderson,Mar 15 1980,L,Married,Aug 23 2005,"Regina, SK",Sarah Mitchell,MA001,Robert Anderson,A002,Emily Parker,MA002,"Regina, SK"
+MA001,Sarah,Elizabeth,Mitchell,Jun 12 1982,L,Married,Aug 23 2005,"Regina, SK",James Anderson,A001,William Mitchell,MA003,Patricia Brown,MA004,"Moose Jaw, SK"
+A002,Robert,John,Anderson,Sep 5 1955,L,Married,May 15 1979,"Regina, SK",Emily Parker,MA002,George Anderson,A003,Margaret Wilson,MA005,"Regina, SK"
+MA002,Emily,Rose,Parker,Apr 18 1957,L,Married,May 15 1979,"Regina, SK",Robert Anderson,A002,Thomas Parker,MA006,Mary Johnson,MA007,"Saskatoon, SK"
+A003,George,William,Anderson,Mar 3 1930,D,Married,Jun 12 1954,"Saskatoon, SK",Margaret Wilson,MA005,Harold Anderson,A004,Dorothy Smith,MA008,"Saskatoon, SK"
+MA005,Margaret,Jane,Wilson,Aug 25 1932,D,Married,Jun 12 1954,"Saskatoon, SK",George Anderson,A003,Richard Wilson,MA009,Elizabeth Davis,MA010,"Regina, SK"
+A004,Harold,Thomas,Anderson,Jan 15 1905,D,Married,Jul 8 1929,"Regina, SK",Dorothy Smith,MA008,Charles Anderson,A005,Grace Miller,MA011,"Regina, SK"
+MA008,Dorothy,Mae,Smith,Apr 30 1908,D,Married,Jul 8 1929,"Regina, SK",Harold Anderson,A004,Frank Smith,MA012,Helen White,MA013,"Moose Jaw, SK"
+MA003,William,James,Mitchell,Nov 20 1955,L,Married,Sep 3 1981,"Moose Jaw, SK",Patricia Brown,MA004,Edward Mitchell,MA014,Susan Taylor,MA015,"Moose Jaw, SK"
+MA004,Patricia,Ann,Brown,Feb 14 1957,L,Married,Sep 3 1981,"Moose Jaw, SK",William Mitchell,MA003,Robert Brown,MA016,Linda Jones,MA017,"Regina, SK"
+A005,Charles,Edward,Anderson,Dec 8 1880,D,Married,May 20 1904,"Regina, SK",Grace Miller,MA011,N/A,N/A,N/A,N/A,"Regina, SK"
+MA011,Grace,Louise,Miller,Mar 17 1883,D,Married,May 20 1904,"Regina, SK",Charles Anderson,A005,N/A,N/A,N/A,N/A,"Saskatoon, SK"
