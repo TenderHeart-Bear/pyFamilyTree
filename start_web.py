@@ -64,6 +64,37 @@ def create_directories():
     
     print("✅ Directories created/verified")
 
+def open_browser_safely():
+    """Safely open browser with multiple fallback methods"""
+    url = 'http://localhost:5000'
+    
+    # Try different browser opening methods
+    browsers_to_try = [
+        'chrome',
+        'firefox',
+        'safari',
+        'edge',
+        'opera'
+    ]
+    
+    for browser in browsers_to_try:
+        try:
+            webbrowser.get(browser).open(url)
+            print(f"🌍 Browser opened successfully with {browser}")
+            return True
+        except:
+            continue
+    
+    # Fallback to default browser
+    try:
+        webbrowser.open(url)
+        print("🌍 Browser opened with default browser")
+        return True
+    except:
+        print("📝 Please manually open your browser and navigate to:")
+        print(f"   {url}")
+        return False
+
 def start_web_app():
     """Start the web application"""
     print("\n🚀 Starting Family Tree Visualizer Web Application...")
@@ -89,22 +120,24 @@ def start_web_app():
         print("\n" + "=" * 50)
         
         # Open browser after a short delay
-        def open_browser():
-            time.sleep(2)
-            try:
-                webbrowser.open('http://localhost:5000')
-                print("🌍 Browser opened automatically")
-            except:
-                print("📝 Please open your browser and navigate to: http://localhost:5000")
+        def open_browser_delayed():
+            time.sleep(3)  # Increased delay to ensure server is ready
+            open_browser_safely()
         
         # Start browser in a separate thread
         import threading
-        browser_thread = threading.Thread(target=open_browser)
+        browser_thread = threading.Thread(target=open_browser_delayed)
         browser_thread.daemon = True
         browser_thread.start()
         
-        # Run the Flask app
-        app.run(debug=True, host='0.0.0.0', port=5000)
+        # Run the Flask app with improved settings
+        app.run(
+            debug=True, 
+            host='0.0.0.0', 
+            port=5000, 
+            threaded=False,  # Prevent threading issues
+            use_reloader=False  # Prevent double startup
+        )
         
     except ImportError as e:
         print(f"❌ Error importing web_app: {e}")

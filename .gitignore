@@ -21,7 +21,12 @@ out/
 
 # Real family data (protect sensitive information)
 assets/Family Records*/
+assets/Family_Records-MasterV2/
 Family Records-MasterV2.xlsm
+Family_Records-MasterV2.xlsm
+uploads/Family_Records-MasterV2.xlsm
+*.xlsm
+*.xlsx
 
 # Development files
 To-Do.txt

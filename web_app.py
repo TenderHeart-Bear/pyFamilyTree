@@ -16,6 +16,7 @@ from pathlib import Path
 from src.data.excel_converter import create_xml_from_excel_sheet
 from src.graph.family import FamilyTreeGraph
 from src.graph.embedded_family import EmbeddedFamilyTreeGraph
+from src.graph.d3_family import D3FamilyTreeGraph
 from src.data.xml_parser import FamilyTreeData
 from src.core.path_manager import path_manager
 
@@ -32,7 +33,7 @@ current_data_dir = None
 current_graph = None
 session_data = {}
 
-ALLOWED_EXTENSIONS = {'xlsx', 'xls'}
+ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'xlsm'}
 
 def allowed_file(filename):
     """Check if file extension is allowed"""
@@ -58,7 +59,10 @@ def upload_file():
         return jsonify({'error': 'No file selected'}), 400
     
     if not allowed_file(file.filename):
-        return jsonify({'error': 'Invalid file type. Please upload Excel files only.'}), 400
+        return jsonify({'error': 'Invalid file type. Please upload Excel files only (.xlsx, .xls, .xlsm).'}), 400
+    
+    if not sheet_name.strip():
+        return jsonify({'error': 'Sheet name is required'}), 400
     
     try:
         # Save uploaded file
@@ -71,7 +75,10 @@ def upload_file():
         xml_dir = os.path.join("assets", excel_base_name, sheet_name)
         
         # Create XML files from Excel
-        xml_dir = create_xml_from_excel_sheet(file_path, sheet_name, xml_dir)
+        try:
+            xml_dir = create_xml_from_excel_sheet(file_path, sheet_name, xml_dir)
+        except Exception as excel_error:
+            return jsonify({'error': f'Error converting Excel file: {str(excel_error)}'}), 500
         
         # Store session data
         current_data_dir = xml_dir
@@ -83,20 +90,59 @@ def upload_file():
         }
         
         # Get available characters for selection
-        family_data = FamilyTreeData(xml_dir)
+        try:
+            family_data = FamilyTreeData(xml_dir)
+            characters = family_data.get_all_characters()
+            character_list = [{'id': char_id, 'name': char_data.get('name', char_id)} 
+                             for char_id, char_data in characters.items()]
+            
+            return jsonify({
+                'success': True,
+                'message': f'File uploaded successfully: {filename}',
+                'characters': character_list,
+                'total_characters': len(characters)
+            })
+        except Exception as data_error:
+            return jsonify({'error': f'Error loading family data: {str(data_error)}'}), 500
+        
+    except Exception as e:
+        return jsonify({'error': f'Error processing file: {str(e)}'}), 500
+
+@app.route('/load-kearnan', methods=['POST'])
+def load_kearnan_data():
+    """Load Kearnan Family data directly for testing"""
+    global current_data_dir, session_data
+    
+    try:
+        # Use the Kearnan Family dataset
+        xml_data_dir = "assets/Family Records-MasterV2/Kearnan Family"
+        
+        if not os.path.exists(xml_data_dir):
+            return jsonify({'error': 'Kearnan Family data not found'}), 404
+        
+        # Store session data
+        current_data_dir = xml_data_dir
+        session_data = {
+            'file_path': 'Kearnan Family (pre-loaded)',
+            'sheet_name': 'Kearnan Family',
+            'xml_dir': xml_data_dir,
+            'filename': 'Kearnan Family'
+        }
+        
+        # Get available characters for selection
+        family_data = FamilyTreeData(xml_data_dir)
         characters = family_data.get_all_characters()
         character_list = [{'id': char_id, 'name': char_data.get('name', char_id)} 
                          for char_id, char_data in characters.items()]
         
         return jsonify({
             'success': True,
-            'message': f'File uploaded successfully: {filename}',
-            'characters': character_list,
-            'total_characters': len(characters)
+            'message': f'Kearnan Family data loaded successfully with {len(characters)} characters',
+            'characters': character_list
         })
         
     except Exception as e:
-        return jsonify({'error': f'Error processing file: {str(e)}'}), 500
+        return jsonify({'error': f'Error loading Kearnan Family data: {str(e)}'}), 500
 
 @app.route('/visualize', methods=['POST'])
 def visualize():
@@ -115,38 +161,53 @@ def visualize():
         generations_forward = int(data.get('generations_forward', 0))
         style_choice = data.get('style', '1')
         generate_all = data.get('generate_all', False)
+        engine = data.get('engine', 'classic')  # New parameter for engine selection
         
         # Create new session for this visualization
         session_dir = path_manager.create_session()
         
+        # Choose graph class based on engine
+        if engine == 'd3':
+            graph_class = D3FamilyTreeGraph
+            output_format = 'html'
+        elif engine == 'embedded':
+            graph_class = EmbeddedFamilyTreeGraph
+            output_format = 'svg'
+        else:  # classic
+            graph_class = FamilyTreeGraph
+            output_format = 'svg'
+        
         # Create graph with appropriate parameters
         if generate_all:
             # Generate complete tree
-            current_graph = FamilyTreeGraph(
-                xml_data_dir=current_data_dir
+            current_graph = graph_class(
+                xml_data_dir=current_data_dir,
+                output_dir=session_dir,
+                output_format=output_format
             )
         else:
             # Generate specific view
-            current_graph = FamilyTreeGraph(
+            current_graph = graph_class(
                 xml_data_dir=current_data_dir,
+                output_dir=session_dir,
                 start_person_name=start_person if start_person else None,
                 generations_back=generations_back,
-                generations_forward=generations_forward
+                generations_forward=generations_forward,
+                output_format=output_format
             )
         
         # Generate visualization
-        if current_graph and current_graph.characters:
-            output_path = current_graph.generate_visualization(
-                output_format='svg',
-                output_dir=session_dir
-            )
+        if current_graph:
+            output_path = current_graph.generate_visualization()
             
             if output_path and os.path.exists(output_path):
                 # Return the path to the generated visualization
                 return jsonify({
                     'success': True,
                     'visualization_path': output_path,
-                    'character_count': len(current_graph.characters)
+                    'character_count': len(current_graph.characters) if hasattr(current_graph, 'characters') else 0,
+                    'engine': engine,
+                    'format': output_format
                 })
             else:
                 return jsonify({'error': 'Failed to generate visualization'}), 500
@@ -161,7 +222,7 @@ def serve_visualization(filename):
     """Serve generated visualization files"""
     try:
         # Look for the file in the sessions directory
-        sessions_dir = path_manager.get_sessions_dir()
+        sessions_dir = path_manager.get_session_dir()
         file_path = os.path.join(sessions_dir, filename)
         
         if os.path.exists(file_path):
@@ -211,5 +272,46 @@ def get_status():
     
     return jsonify(status)
 
+# Error handlers to prevent bad request errors
+@app.errorhandler(400)
+def bad_request(error):
+    """Handle bad request errors"""
+    return jsonify({'error': 'Bad request'}), 400
+
+@app.errorhandler(404)
+def not_found(error):
+    """Handle not found errors"""
+    return jsonify({'error': 'Not found'}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle internal server errors"""
+    return jsonify({'error': 'Internal server error'}), 500
+
+# Handle HTTPS redirects
+@app.before_request
+def before_request():
+    """Handle HTTPS redirects and other pre-request processing"""
+    # If the request is coming over HTTPS, redirect to HTTP
+    if request.headers.get('X-Forwarded-Proto') == 'https':
+        return redirect(request.url.replace('https://', 'http://'), code=301)
+    
+    # Add security headers
+    response = None
+    if hasattr(request, 'endpoint') and request.endpoint:
+        response = app.make_response(request.endpoint)
+        if response:
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+            response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+            response.headers['X-XSS-Protection'] = '1; mode=block'
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    # Use threaded=False to prevent issues with some browsers
+    # and disable SSL context to prevent HTTPS redirects
+    app.run(
+        debug=True, 
+        host='0.0.0.0', 
+        port=5000, 
+        threaded=False,
+        ssl_context=None  # Explicitly disable SSL
+    ) 
