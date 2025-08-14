@@ -14,9 +14,7 @@ from pathlib import Path
 
 # Import existing modules
 from src.data.excel_converter import create_xml_from_excel_sheet
-from src.graph.family import FamilyTreeGraph
-from src.graph.embedded_family import EmbeddedFamilyTreeGraph
-from src.graph.d3_family import D3FamilyTreeGraph
+from src.graph import D3FamilyTreeGraph
 from src.data.xml_parser import FamilyTreeData
 from src.core.path_manager import path_manager
 
@@ -28,10 +26,10 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 # Ensure upload directory exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Global variables to store current session data
-current_data_dir = None
-current_graph = None
-session_data = {}
+# Initialize Flask-Session
+from flask_session import Session
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
 
 ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'xlsm'}
 
@@ -47,7 +45,6 @@ def index():
 @app.route('/upload', methods=['POST'])
 def upload_file():
     """Handle file upload and processing"""
-    global current_data_dir, session_data
     
     if 'file' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
@@ -81,13 +78,11 @@ def upload_file():
             return jsonify({'error': f'Error converting Excel file: {str(excel_error)}'}), 500
         
         # Store session data
-        current_data_dir = xml_dir
-        session_data = {
-            'file_path': file_path,
-            'sheet_name': sheet_name,
-            'xml_dir': xml_dir,
-            'filename': filename
-        }
+        session['current_data_dir'] = xml_dir
+        session['file_path'] = file_path
+        session['sheet_name'] = sheet_name
+        session['xml_dir'] = xml_dir
+        session['filename'] = filename
         
         # Get available characters for selection
         try:
@@ -166,16 +161,9 @@ def visualize():
         # Create new session for this visualization
         session_dir = path_manager.create_session()
         
-        # Choose graph class based on engine
-        if engine == 'd3':
-            graph_class = D3FamilyTreeGraph
-            output_format = 'html'
-        elif engine == 'embedded':
-            graph_class = EmbeddedFamilyTreeGraph
-            output_format = 'svg'
-        else:  # classic
-            graph_class = FamilyTreeGraph
-            output_format = 'svg'
+        # Always use D3 engine
+        graph_class = D3FamilyTreeGraph
+        output_format = 'html'
         
         # Create graph with appropriate parameters
         if generate_all:

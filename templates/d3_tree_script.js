@@ -6,8 +6,281 @@ let svg, g, zoom, simulation;
 let selectedNode = null;
 let currentZoom = 1;
 
+// Utility: measure text width for dynamic card sizing
+function measureTextWidth(text, font) {
+    const context = measureTextWidth._ctx || (measureTextWidth._ctx = document.createElement('canvas').getContext('2d'));
+    context.font = font || '12px Arial';
+    return context.measureText(text || '').width;
+}
+
+// Create an orthogonal elbow path (vertical → horizontal → vertical)
+function createElbowPath(sourceX, sourceY, targetX, targetY) {
+    const midY = sourceY + (targetY - sourceY) / 2;
+    return `M ${sourceX},${sourceY} V ${midY} H ${targetX} V ${targetY}`;
+}
+
+// Generation color scheme (by depth/generation)
+const generationPalette = [
+    '#1f77b4', // Gen 0
+    '#ff7f0e', // Gen 1
+    '#2ca02c', // Gen 2
+    '#d62728', // Gen 3
+    '#9467bd', // Gen 4
+    '#8c564b', // Gen 5
+    '#e377c2', // Gen 6
+    '#17becf', // Gen 7
+    '#bcbd22', // Gen 8
+    '#7f7f7f'  // Gen 9
+];
+
+function getGenerationColor(depth) {
+    const idx = Math.abs(depth || 0) % generationPalette.length;
+    return generationPalette[idx];
+}
+
+function computeCardWidthByName(name) {
+    const font = '12px Arial';
+    const horizontalPadding = 14;
+    const measuredWidth = measureTextWidth(name || '', font) + horizontalPadding * 2;
+    return Math.max(90, Math.min(170, Math.round(measuredWidth)));
+}
+
+function computeSpouseOffsetByIds(personId, spouseId) {
+    const personName = (characterData[personId] && characterData[personId].name) ? characterData[personId].name : personId;
+    const spouseName = (characterData[spouseId] && characterData[spouseId].name) ? characterData[spouseId].name : spouseId;
+    const personWidth = computeCardWidthByName(personName);
+    const spouseWidth = computeCardWidthByName(spouseName);
+    const desiredGap = 28; // increased gap between spouses for readability
+    return (personWidth / 2) + (spouseWidth / 2) + desiredGap;
+}
+
+// Compute half extents for a node, accounting for spouse span to the right
+function getNodeHalfExtents(node) {
+    const id = node && node.data ? node.data.id : null;
+    const person = id ? characterData[id] : null;
+    const width = node.cardWidth || 120;
+    const leftHalf = width / 2;
+    let rightHalf = width / 2;
+    if (person && person.spouse_id && characterData[person.spouse_id]) {
+        const spouseWidth = computeCardWidthByName(characterData[person.spouse_id].name || person.spouse_id);
+        const desiredGap = 28;
+        rightHalf = width / 2 + desiredGap + spouseWidth; // conservative: include spouse full width to the right
+    }
+    return { leftHalf, rightHalf };
+}
+
+// Resolve horizontal collisions within each generation depth
+function resolveCollisionsByDepth(nodes) {
+    const nodesByDepth = d3.group(nodes, n => n.depth);
+    const baseGap = 14; // more breathing room between unrelated nodes
+    nodesByDepth.forEach(group => {
+        group.sort((a, b) => a.x - b.x);
+        let prev = null;
+        let prevRightHalf = 0;
+        group.forEach(n => {
+            // ensure cardWidth exists for accurate spacing
+            const name = (n.data && n.data.name) ? n.data.name : n.data.id;
+            n.cardWidth = n.cardWidth || computeCardWidthByName(name);
+            const ext = getNodeHalfExtents(n);
+            if (prev) {
+                const minX = prev.x + prevRightHalf + ext.leftHalf + baseGap;
+                if (n.x < minX) {
+                    const shift = minX - n.x;
+                    n.x += shift;
+                }
+            }
+            prev = n;
+            prevRightHalf = getNodeHalfExtents(n).rightHalf;
+        });
+    });
+}
+
+// Derive a stable family key for a child based on its parents
+function getFamilyKeyForChild(childData) {
+    if (!childData) return null;
+    const father = childData.father_id || '';
+    const mother = childData.mother_id || '';
+    if (!father && !mother) return null;
+    return [father, mother].sort().join('|');
+}
+
+// Family-aware spacing: keep siblings tight, add extra space between different families,
+// and center each sibling block under the midpoint of their parents
+function resolveFamilyAwareLayout(nodes, nodeById) {
+    const nodesByDepth = d3.group(nodes, n => n.depth);
+    nodesByDepth.forEach(group => {
+        // Map familyKey -> array of child nodes in this depth
+        const familyToChildren = new Map();
+        for (const n of group) {
+            const familyKey = getFamilyKeyForChild(n.data);
+            if (!familyKey) continue;
+            if (!familyToChildren.has(familyKey)) familyToChildren.set(familyKey, []);
+            familyToChildren.get(familyKey).push(n);
+        }
+
+        // Compute blocks (one per family)
+        const blocks = [];
+        familyToChildren.forEach((children, key) => {
+            children.sort((a, b) => a.x - b.x);
+            // Compute children bounds
+            let minX = Infinity, maxX = -Infinity;
+            for (const c of children) {
+                const ext = getNodeHalfExtents(c);
+                minX = Math.min(minX, c.x - ext.leftHalf);
+                maxX = Math.max(maxX, c.x + ext.rightHalf);
+            }
+            // Parent midpoint
+            const [p1, p2] = key.split('|');
+            const parent1 = nodeById.get(p1 || '');
+            const parent2 = nodeById.get(p2 || '');
+            let parentMidX = null;
+            if (parent1 && parent2) parentMidX = (parent1.x + parent2.x) / 2;
+            else if (parent1) parentMidX = parent1.x;
+            else if (parent2) parentMidX = parent2.x;
+            const block = {
+                key,
+                children,
+                minX,
+                maxX,
+                get center() { return (this.minX + this.maxX) / 2; },
+                parentMidX
+            };
+            blocks.push(block);
+        });
+
+        if (blocks.length === 0) return;
+
+        // Center each block under its parents
+        for (const b of blocks) {
+            if (b.parentMidX == null) continue;
+            const shift = b.parentMidX - b.center;
+            if (shift === 0) continue;
+            b.minX += shift;
+            b.maxX += shift;
+            for (const c of b.children) c.x += shift;
+        }
+
+        // Prevent overlaps between blocks with a larger gap, while keeping siblings tight
+        blocks.sort((a, b) => a.minX - b.minX);
+        const blockGap = 80;  // much clearer spacing between families
+        for (let i = 1; i < blocks.length; i++) {
+            const prev = blocks[i - 1];
+            const cur = blocks[i];
+            if (cur.minX < prev.maxX + blockGap) {
+                const push = prev.maxX + blockGap - cur.minX;
+                cur.minX += push;
+                cur.maxX += push;
+                for (const c of cur.children) c.x += push;
+            }
+        }
+
+        // Tighten siblings inside each block a bit (post-shift)
+        const siblingGap = 16;
+        for (const b of blocks) {
+            let running = -Infinity;
+            for (const c of b.children) {
+                const ext = getNodeHalfExtents(c);
+                const desiredMinX = Math.max(running, c.x - ext.leftHalf);
+                const shift = desiredMinX - (c.x - ext.leftHalf);
+                if (shift > 0) c.x += shift;
+                running = c.x + ext.rightHalf + siblingGap;
+            }
+        }
+    });
+}
+
+// Draw subtle background rectangles for each family to visually separate households
+function drawFamilyUnderlays(descendantNodes, nodeById) {
+    // Clear existing underlays and labels
+    g.selectAll('.family-underlay').remove();
+    g.selectAll('.family-label').remove();
+
+    const nodesByDepth = d3.group(descendantNodes, n => n.depth);
+    nodesByDepth.forEach(group => {
+        const familyToChildren = new Map();
+        for (const n of group) {
+            const key = getFamilyKeyForChild(n.data);
+            if (!key) continue;
+            if (!familyToChildren.has(key)) familyToChildren.set(key, []);
+            familyToChildren.get(key).push(n);
+        }
+        familyToChildren.forEach((children, key) => {
+            // Compute bounds including parents if present
+            const [p1, p2] = key.split('|');
+            const parent1 = nodeById.get(p1 || '');
+            const parent2 = nodeById.get(p2 || '');
+            let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+            const includeNode = (n) => {
+                if (!n) return;
+                const ext = getNodeHalfExtents(n);
+                xMin = Math.min(xMin, n.x - ext.leftHalf - 10);
+                xMax = Math.max(xMax, n.x + ext.rightHalf + 10);
+                yMin = Math.min(yMin, n.y - (n.cardHeight ? n.cardHeight / 2 : 18) - 14);
+                yMax = Math.max(yMax, n.y + (n.cardHeight ? n.cardHeight / 2 : 18) + 14);
+            };
+            for (const c of children) includeNode(c);
+            includeNode(parent1);
+            includeNode(parent2);
+            if (!isFinite(xMin) || !isFinite(xMax) || !isFinite(yMin) || !isFinite(yMax)) return;
+
+            const colorHue = Math.abs(key.split('|').join('').split('').reduce((a, ch) => a + ch.charCodeAt(0), 0)) % 360;
+            const fill = `hsla(${colorHue}, 55%, 85%, 0.18)`; // slightly stronger to be noticeable
+            const stroke = `hsla(${colorHue}, 55%, 45%, 0.75)`;
+
+            g.insert('rect', ':first-child')
+                .attr('class', 'family-underlay')
+                .attr('x', xMin)
+                .attr('y', yMin)
+                .attr('rx', 12)
+                .attr('ry', 12)
+                .attr('width', Math.max(0, xMax - xMin))
+                .attr('height', Math.max(0, yMax - yMin))
+                .attr('fill', fill)
+                .attr('stroke', stroke)
+                .attr('stroke-width', 2.25);
+
+            // Add a simple family label on top (above shapes and links)
+            const parentNames = [p1, p2]
+                .filter(Boolean)
+                .map(pid => (characterData[pid] && characterData[pid].name) ? characterData[pid].name : pid)
+                .join(' & ');
+            const label = parentNames || 'Family';
+            g.append('text')
+                .attr('class', 'family-label')
+                .attr('x', (xMin + xMax) / 2)
+                .attr('y', yMin - 8)
+                .attr('text-anchor', 'middle')
+                .attr('fill', stroke)
+                .attr('font-size', 11)
+                .attr('font-weight', '600')
+                .text(label);
+        });
+    });
+}
+
 // Tree layout - use vertical layout for top-down view
 const treeLayout = d3.tree().size([window.innerWidth - 500, window.innerHeight - 200]);
+// Use dynamic separation to account for spouse width and reduce overlap across siblings
+const constantSeparation = (a, b) => (a.parent === b.parent ? 1.3 : 1.6);
+const dynamicSeparation = (a, b) => {
+    const isSiblingRow = (a.parent === b.parent);
+    const depth = Math.max(a.depth || 0, b.depth || 0);
+    const base = isSiblingRow ? 1.2 : 1.6; // looser base spacing
+    // Light attenuation so later generations remain readable
+    const attenuation = Math.max(0.85, 1 - depth * 0.03);
+    const extraFor = (n) => {
+        if (!n || !n.data) return 0;
+        const id = n.data.id;
+        const spouseId = characterData[id] ? characterData[id].spouse_id : null;
+        if (!spouseId) return 0;
+        const offset = computeSpouseOffsetByIds(id, spouseId);
+        // normalize by a typical node width to keep the value modest
+        return Math.min(0.8, offset / 240);
+    };
+    const extra = (extraFor(a) + extraFor(b)) * 0.5; // average extra
+    const sep = (base + 0.25 * extra) * attenuation;
+    return Math.max(1.0, sep);
+};
 
 // Initialize the viewer
 document.addEventListener('DOMContentLoaded', function() {
@@ -38,12 +311,19 @@ function initializeTree() {
     // Create hierarchy
     const root = d3.hierarchy(treeData);
     
-    // Apply tree layout with better spacing for vertical layout
+    // Apply tree layout with controlled spacing
     const containerWidth = window.innerWidth - 500;
     const containerHeight = window.innerHeight - 200;
-    treeLayout.size([containerWidth, containerHeight])(root);
-    treeLayout.nodeSize([300, 120])(root);
+    treeLayout
+        .size([containerWidth, containerHeight])
+        .separation(dynamicSeparation)
+        .nodeSize([240, 110])(root); // looser horizontal and vertical spacing
     
+    // Resolve in-generation collisions and apply family-aware layout
+    const allNodes = root.descendants();
+    const nodeById = new Map(allNodes.map(n => [n.data.id, n]));
+    resolveCollisionsByDepth(allNodes);
+    resolveFamilyAwareLayout(allNodes, nodeById);
     // Draw the tree
     drawTree(root);
     
@@ -124,46 +404,144 @@ function drawTree(root) {
     // Clear existing content
     g.selectAll("*").remove();
     
-    // Create links - use vertical layout
+    // Prepare node lookup to compute spouse midpoints for children
+    const descendantNodes = root.descendants();
+    const nodeById = new Map(descendantNodes.map(n => [n.data.id, n]));
+
+    // Compute branch keys and a deterministic color for each branch (first generation under root)
+    const branchKeyById = new Map();
+    const branchKeys = new Set();
+    descendantNodes.forEach(n => {
+        let key = n.data && n.data.id;
+        if (n.depth >= 1) {
+            const ancestors = n.ancestors();
+            // ancestors(): [node, parent, ..., root]; pick depth-1 ancestor when possible
+            const maybeTopChild = ancestors[ancestors.length - 2];
+            key = (maybeTopChild && maybeTopChild.data) ? maybeTopChild.data.id : key;
+        }
+        branchKeyById.set(n.data.id, key);
+        branchKeys.add(key);
+    });
+
+    const branchColorCache = new Map();
+    function colorFromKey(key) {
+        if (branchColorCache.has(key)) return branchColorCache.get(key);
+        const hash = String(key || '')
+            .split('')
+            .reduce((acc, ch) => (acc * 131 + ch.charCodeAt(0)) >>> 0, 0);
+        const hue = hash % 360;
+        const color = `hsl(${hue}, 70%, 40%)`;
+        branchColorCache.set(key, color);
+        return color;
+    }
+
+    // Create links - use vertical layout, but if a child has two parents,
+    // route the link from the midpoint between the parents; anchor to card edges (bottom/top)
     const links = g.selectAll(".link")
         .data(root.links())
         .enter().append("path")
         .attr("class", "link")
-        .attr("d", d3.linkVertical()
-            .x(d => d.x)
-            .y(d => d.y));
+        .attr("stroke", function(d){
+            const childId = d.target && d.target.data ? d.target.data.id : null;
+            const key = branchKeyById.get(childId);
+            return colorFromKey(key);
+        })
+        .attr("d", function(d) {
+            const childId = d.target && d.target.data ? d.target.data.id : null;
+            const childData = childId ? characterData[childId] : null;
+
+            // Default link generator (unused in elbow path but kept for reference)
+            const gen = d3.linkVertical().x(p => p.x).y(p => p.y);
+
+            if (childData && childData.father_id && childData.mother_id) {
+                const thisParentId = d.source.data.id;
+                const otherParentId = thisParentId === childData.father_id ? childData.mother_id : childData.father_id;
+
+                // Only draw a single link for the pair: from the midpoint to the child.
+                // Choose the parent with the lexicographically smaller id as the drawer.
+                const firstParentId = [childData.father_id, childData.mother_id].sort()[0];
+                if (thisParentId !== firstParentId) {
+                    return ""; // suppress duplicate link from the second parent
+                }
+
+                // Try to find the other parent as a main node
+                const otherParentNode = nodeById.get(otherParentId);
+                let otherX, otherY;
+                if (otherParentNode) {
+                    otherX = otherParentNode.x;
+                    otherY = otherParentNode.y;
+                } else if (characterData[otherParentId]) {
+                    // If not in the main tree, estimate spouse position using dynamic card widths
+                    const offset = computeSpouseOffsetByIds(thisParentId, otherParentId);
+                    otherX = d.source.x + offset;
+                    otherY = d.source.y;
+                }
+
+                if (otherX !== undefined && otherY !== undefined) {
+                    // Connect from the spouse bar (horizontal line between parents at card center) to top of child card
+                    const coupleY = d.source.y; // spouse link is drawn at card center Y
+                    const childTopY = d.target.y - (d.target.cardHeight ? d.target.cardHeight / 2 : 18);
+                    const midX = (d.source.x + otherX) / 2;
+                    return createElbowPath(midX, coupleY, d.target.x, childTopY);
+                }
+            }
+
+            // Fallback: single-parent case → connect from bottom edge of parent card to top of child card
+            const sourceBottomY = d.source.y + (d.source.cardHeight ? d.source.cardHeight / 2 : 18);
+            const childTopY = d.target.y - (d.target.cardHeight ? d.target.cardHeight / 2 : 18);
+            return createElbowPath(d.source.x, sourceBottomY, d.target.x, childTopY);
+        });
     
     // Create nodes
     const nodes = g.selectAll(".node")
-        .data(root.descendants())
+        .data(descendantNodes)
         .enter().append("g")
         .attr("class", "node")
         .attr("transform", d => `translate(${d.x},${d.y})`);
-    
-    // Add node circles
-    nodes.append("circle")
-        .attr("r", 15)
-        .attr("fill", d => "#3498db")
-        .attr("stroke", "#2c3e50")
-        .attr("stroke-width", 2);
-    
-    // Add node labels
-    nodes.append("text")
-        .attr("class", "node-label")
-        .attr("dy", "0.35em")
-        .attr("y", 25)
-        .text(d => d.data.name)
-        .style("font-size", "14px")
-        .style("font-weight", "bold")
-        .style("fill", "#2c3e50")
-        .style("text-anchor", "middle")
-        .style("pointer-events", "none");
+
+    // Add node cards (rounded rectangles) with embedded labels
+    nodes.each(function(d) {
+        const name = (d.data && d.data.name) ? d.data.name : d.data.id;
+        const height = 30;
+        const width = computeCardWidthByName(name);
+        d.cardWidth = width;
+        d.cardHeight = height;
+        const color = getGenerationColor(d.depth);
+
+        const group = d3.select(this);
+
+        group.append("rect")
+            .attr("x", -width / 2)
+            .attr("y", -height / 2)
+            .attr("rx", 10)
+            .attr("ry", 10)
+            .attr("width", width)
+            .attr("height", height)
+            .attr("fill", color)
+            .attr("fill-opacity", 0.12)
+            .attr("stroke", color)
+            .attr("stroke-width", 2);
+
+        group.append("text")
+            .attr("class", "node-label")
+            .attr("dy", "0.35em")
+            .attr("y", 0)
+            .text(name)
+            .style("font-size", "12px")
+            .style("font-weight", "bold")
+            .style("fill", "#2c3e50")
+            .style("text-anchor", "middle")
+            .style("pointer-events", "none");
+    });
     
     // Add spouse nodes separately
     addSpouseNodes();
     
     // Add spouse connections
-    addSpouseConnections();
+    addSpouseConnectionsWithBranchColors(branchKeyById, colorFromKey);
+
+    // Draw family underlays after nodes/links so bounds are accurate, but insert behind
+    drawFamilyUnderlays(descendantNodes, nodeById);
     
     // Add click events
     nodes.on("click", handleNodeClick);
@@ -197,20 +575,38 @@ function addSpouseNodes() {
                 .attr("transform", `translate(${spouseX},${spouseY})`)
                 .attr("data-person-id", spouseId);
             
-            // Add spouse circle
-            spouseGroup.append("circle")
-                .attr("r", 15)
-                .attr("fill", "#e74c3c")
-                .attr("stroke", "#2c3e50")
+            // Add spouse card (rounded rectangle) with embedded label
+            const spouseName = spouseData.name || spouseId;
+            const height = 30;
+            const width = computeCardWidthByName(spouseName);
+            const color = getGenerationColor(d.depth);
+
+            // Recompute x to account for both card widths and gap
+            const offset = computeSpouseOffsetByIds(personId, spouseId);
+            const adjustedSpouseX = d.x + offset;
+            spouseGroup.attr("transform", `translate(${adjustedSpouseX},${spouseY})`);
+
+            // Bind a datum so generic handlers can read node data from spouse nodes
+            spouseGroup.datum({ data: { id: spouseId, name: spouseName }, x: adjustedSpouseX, y: spouseY });
+
+            spouseGroup.append("rect")
+                .attr("x", -width / 2)
+                .attr("y", -height / 2)
+                .attr("rx", 10)
+                .attr("ry", 10)
+                .attr("width", width)
+                .attr("height", height)
+                .attr("fill", color)
+                .attr("fill-opacity", 0.12)
+                .attr("stroke", color)
                 .attr("stroke-width", 2);
-            
-            // Add spouse label
+
             spouseGroup.append("text")
                 .attr("class", "node-label")
                 .attr("dy", "0.35em")
-                .attr("y", 25)
-                .text(spouseData.name)
-                .style("font-size", "14px")
+                .attr("y", 0)
+                .text(spouseName)
+                .style("font-size", "12px")
                 .style("font-weight", "bold")
                 .style("fill", "#2c3e50")
                 .style("text-anchor", "middle")
@@ -218,15 +614,15 @@ function addSpouseNodes() {
             
             // Add click events for spouse nodes
             spouseGroup.on("click", function(event) {
-                handleNodeClick(event, { data: { id: spouseId }, x: spouseX, y: spouseY });
+                handleNodeClick(event, { data: { id: spouseId, name: spouseName }, x: adjustedSpouseX, y: spouseY });
             });
             
             // Add hover events for spouse nodes
             spouseGroup.on("mouseenter", function(event) {
-                handleNodeHover(event, { data: { id: spouseId }, x: spouseX, y: spouseY });
+                handleNodeHover(event, { data: { id: spouseId }, x: adjustedSpouseX, y: spouseY });
             });
             spouseGroup.on("mouseleave", function(event) {
-                handleNodeLeave(event, { data: { id: spouseId }, x: spouseX, y: spouseY });
+                handleNodeLeave(event, { data: { id: spouseId }, x: adjustedSpouseX, y: spouseY });
             });
             
             existingNodes.add(spouseId);
@@ -234,7 +630,7 @@ function addSpouseNodes() {
     });
 }
 
-function addSpouseConnections() {
+function addSpouseConnectionsWithBranchColors(branchKeyById, colorFromKey) {
     // Add spouse connections (dashed lines between spouses)
     const spouseConnections = [];
     
@@ -263,6 +659,10 @@ function addSpouseConnections() {
         .data(spouseConnections)
         .enter().append("path")
         .attr("class", "spouse-link")
+        .attr("stroke", d => {
+            const key = branchKeyById.get(d.source) || branchKeyById.get(d.target);
+            return colorFromKey(key);
+        })
         .attr("d", d => {
             // Find the positions of the spouse nodes - check both main nodes and spouse nodes
             let sourceNode = g.selectAll(".node").filter(function() {
@@ -292,7 +692,7 @@ function addSpouseConnections() {
             
             if (!sourceNode.empty() && !targetNode.empty()) {
                 let sourceX, sourceY, targetX, targetY;
-                
+
                 // Get position from main tree node
                 const sourceDatum = sourceNode.datum();
                 if (sourceDatum && sourceDatum.x !== undefined && sourceDatum.y !== undefined) {
@@ -301,13 +701,13 @@ function addSpouseConnections() {
                 } else {
                     // Get position from spouse node transform
                     const sourceTransform = sourceNode.attr("transform");
-                    const match = sourceTransform.match(/translate\\(([^,]+),([^)]+)\\)/);
+                    const match = sourceTransform.match(/translate\(([^,]+),([^)]+)\)/);
                     if (match) {
                         sourceX = parseFloat(match[1]);
                         sourceY = parseFloat(match[2]);
                     }
                 }
-                
+
                 const targetDatum = targetNode.datum();
                 if (targetDatum && targetDatum.x !== undefined && targetDatum.y !== undefined) {
                     targetX = targetDatum.x;
@@ -315,24 +715,38 @@ function addSpouseConnections() {
                 } else {
                     // Get position from spouse node transform
                     const targetTransform = targetNode.attr("transform");
-                    const match = targetTransform.match(/translate\\(([^,]+),([^)]+)\\)/);
+                    const match = targetTransform.match(/translate\(([^,]+),([^)]+)\)/);
                     if (match) {
                         targetX = parseFloat(match[1]);
                         targetY = parseFloat(match[2]);
                     }
                 }
-                
-                if (sourceX !== undefined && sourceY !== undefined && 
+
+                // Read rect widths to connect at card edges rather than centers
+                const sourceRectWidth = parseFloat(sourceNode.select('rect').attr('width') || '0');
+                const sourceRectStroke = parseFloat(sourceNode.select('rect').attr('stroke-width') || '0');
+                const targetRectWidth = parseFloat(targetNode.select('rect').attr('width') || '0');
+                const targetRectStroke = parseFloat(targetNode.select('rect').attr('stroke-width') || '0');
+                const sourceHalf = sourceRectWidth > 0 ? sourceRectWidth / 2 : 0;
+                const targetHalf = targetRectWidth > 0 ? targetRectWidth / 2 : 0;
+                // Pull the spouse line a bit inside so it meets the darker border cleanly
+                const edgePadding = Math.max(1, Math.round(((sourceRectStroke + targetRectStroke) / 2) || 2));
+
+                if (sourceX !== undefined && sourceY !== undefined &&
                     targetX !== undefined && targetY !== undefined) {
-                    console.log(`  Source position: (${sourceX}, ${sourceY})`);
-                    console.log(`  Target position: (${targetX}, ${targetY})`);
-                    
-                    return d3.linkVertical()
-                        .x(d => d.x)
-                        .y(d => d.y)({
-                            source: { x: sourceX, y: sourceY },
-                            target: { x: targetX, y: targetY }
-                        });
+                    // Determine left/right
+                    let startX, startY, endX, endY;
+                    if (sourceX <= targetX) {
+                        startX = sourceX + sourceHalf - edgePadding;
+                        endX = targetX - targetHalf + edgePadding;
+                    } else {
+                        startX = sourceX - sourceHalf + edgePadding;
+                        endX = targetX + targetHalf - edgePadding;
+                    }
+                    startY = sourceY;
+                    endY = targetY;
+
+                    return `M ${startX},${startY} L ${endX},${endY}`;
                 }
             }
             console.log(`  ❌ Could not find nodes for spouse connection`);
@@ -370,16 +784,28 @@ function handleNodeClick(event, d) {
     
     // Remove previous selection
     if (selectedNode) {
-        selectedNode.select("circle").classed("selected", false);
+        selectedNode.select("rect").classed("selected", false);
     }
     
     // Select new node
     selectedNode = nodeElement;
-    selectedNode.select("circle").classed("selected", true);
+    selectedNode.select("rect").classed("selected", true);
     
+    // Resolve person identity robustly for spouse nodes or unexpected data
+    const resolvedPersonId = (nodeData && nodeData.data && nodeData.data.id)
+        || nodeElement.attr("data-person-id");
+    if (!resolvedPersonId) {
+        console.error("Could not resolve person id for clicked node", nodeData);
+        return;
+    }
+
+    const resolvedName = (nodeData && nodeData.data && nodeData.data.name)
+        || (characterData[resolvedPersonId] && characterData[resolvedPersonId].name)
+        || resolvedPersonId;
+
     // Show person details
-    showPersonDetails(nodeData.data.id);
-    updateStatus(`Selected: ${nodeData.data.name}`);
+    showPersonDetails(resolvedPersonId);
+    updateStatus(`Selected: ${resolvedName}`);
 }
 
 function handleNodeHover(event, d) {
@@ -513,31 +939,101 @@ function resetView() {
 function fitToWindow() {
     const svgElement = document.querySelector('svg');
     const treeContainer = document.querySelector('.tree-container');
-    
-    if (!svgElement || !treeContainer) return;
-    
-    const svgRect = svgElement.getBoundingClientRect();
+    if (!svgElement || !treeContainer || !g) return;
+
+    // Use the content bounding box rather than the viewport size
+    let bbox;
+    try {
+        bbox = g.node().getBBox();
+    } catch (e) {
+        // Fallback to viewport bounds
+        bbox = { x: 0, y: 0, width: svgElement.clientWidth, height: svgElement.clientHeight };
+    }
+
     const containerRect = treeContainer.getBoundingClientRect();
-    
-    // Calculate zoom to fit with some padding
-    const zoomX = (containerRect.width - 100) / svgRect.width;
-    const zoomY = (containerRect.height - 100) / svgRect.height;
-    currentZoom = Math.min(zoomX, zoomY, 1) * 0.9;
-    
-    // Center the SVG
-    const scaledWidth = svgRect.width * currentZoom;
-    const scaledHeight = svgRect.height * currentZoom;
-    
-    const translateX = (containerRect.width - scaledWidth) / 2;
-    const translateY = (containerRect.height - scaledHeight) / 2;
-    
-    // Apply transform using d3.select instead of direct svg reference
-    const transform = d3.zoomIdentity
-        .translate(translateX, translateY)
-        .scale(currentZoom);
-    
-    d3.select(svgElement).transition().duration(750).call(zoom.transform, transform);
+
+    // Padding around content when fitting
+    const padding = 40; // allow more space around edges when fitting
+    const widthWithPad = bbox.width + padding * 2;
+    const heightWithPad = bbox.height + padding * 2;
+
+    const scaleX = containerRect.width / widthWithPad;
+    const scaleY = containerRect.height / heightWithPad;
+    currentZoom = Math.min(scaleX, scaleY, 1);
+
+    // Translate so the content center is centered in the container
+    const contentCenterX = bbox.x + bbox.width / 2;
+    const contentCenterY = bbox.y + bbox.height / 2;
+
+    const translateX = containerRect.width / 2 - contentCenterX * currentZoom;
+    const translateY = containerRect.height / 2 - contentCenterY * currentZoom;
+
+    const transform = d3.zoomIdentity.translate(translateX, translateY).scale(currentZoom);
+    d3.select(svgElement).transition().duration(500).call(zoom.transform, transform);
     updateStatus(`Fitted to window - Zoom: ${Math.round(currentZoom * 100)}%`);
+}
+
+// Prepare a print-friendly fit for US Letter (landscape) and trigger print
+function printLetter() {
+    const body = document.body;
+    if (!body) return;
+
+    body.classList.add('print-mode');
+    // Give layout one frame to apply before fitting
+    setTimeout(() => {
+        fitToLetterPage();
+        // Slight delay to ensure transform is applied before printing
+        setTimeout(() => {
+            window.print();
+            // Clean up after print (in case afterprint isn't fired)
+            setTimeout(() => body.classList.remove('print-mode'), 300);
+        }, 150);
+    }, 50);
+}
+
+// Clean up print mode if supported
+window.addEventListener('afterprint', () => {
+    document.body.classList.remove('print-mode');
+});
+
+// Fit the SVG content to a US Letter landscape page (single page)
+function fitToLetterPage() {
+    const svgElement = document.querySelector('svg');
+    if (!svgElement || !g) return;
+
+    // Compute content bounds
+    let bbox;
+    try {
+        bbox = g.node().getBBox();
+    } catch (e) {
+        return; // If unavailable, skip
+    }
+
+    // Page size: Letter landscape with 0.5in margins on each side
+    const CSS_DPI = 96; // 1in = 96px in CSS
+    const pageWidthInches = 11;
+    const pageHeightInches = 8.5;
+    const marginInches = 0.5;
+    const targetWidthPx = (pageWidthInches - marginInches * 2) * CSS_DPI;  // 10in -> 960px
+    const targetHeightPx = (pageHeightInches - marginInches * 2) * CSS_DPI; // 7.5in -> 720px
+
+    const padding = 24; // small padding inside printable area
+    const widthWithPad = bbox.width + padding * 2;
+    const heightWithPad = bbox.height + padding * 2;
+
+    const scaleX = targetWidthPx / widthWithPad;
+    const scaleY = targetHeightPx / heightWithPad;
+    // Only downscale for print to guarantee single page
+    currentZoom = Math.min(scaleX, scaleY, 1);
+
+    // Center content within the printable area
+    const contentCenterX = bbox.x + bbox.width / 2;
+    const contentCenterY = bbox.y + bbox.height / 2;
+    const translateX = targetWidthPx / 2 - contentCenterX * currentZoom;
+    const translateY = targetHeightPx / 2 - contentCenterY * currentZoom;
+
+    const transform = d3.zoomIdentity.translate(translateX, translateY).scale(currentZoom);
+    d3.select(svgElement).call(zoom.transform, transform);
 }
 
 function centerOnSelected() {
@@ -559,10 +1055,16 @@ window.addEventListener('resize', function() {
     // Recalculate tree layout with full height
     const containerWidth = window.innerWidth - 500;
     const containerHeight = window.innerHeight - 200;
-    
+
     const root = d3.hierarchy(buildTreeData());
-    treeLayout.size([containerWidth, containerHeight])(root);
-    treeLayout.nodeSize([300, 120])(root);
+    treeLayout
+        .size([containerWidth, containerHeight])
+        .separation(dynamicSeparation)
+        .nodeSize([240, 110])(root);
+    const allNodes = root.descendants();
+    const nodeById = new Map(allNodes.map(n => [n.data.id, n]));
+    resolveCollisionsByDepth(allNodes);
+    resolveFamilyAwareLayout(allNodes, nodeById);
     drawTree(root);
     
     // Refit to window

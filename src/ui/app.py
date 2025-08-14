@@ -8,8 +8,7 @@ import os
 from typing import Optional
 
 from ..data.excel_converter import select_excel_file_and_sheet, create_xml_from_excel_sheet
-from ..graph.family import FamilyTreeGraph
-from ..graph.embedded_family import EmbeddedFamilyTreeGraph
+from ..graph import D3FamilyTreeGraph
 from .widgets.svg_viewer import SVGViewer
 
 class FamilyTreeApp(tk.Tk):
@@ -21,7 +20,7 @@ class FamilyTreeApp(tk.Tk):
         self.geometry("1200x800")
         
         # Initialize variables
-        self.current_graph: Optional[FamilyTreeGraph] = None
+        self.current_graph: Optional[D3FamilyTreeGraph] = None
         self.current_svg_path: Optional[str] = None
         
         self._setup_ui()
@@ -125,9 +124,8 @@ class FamilyTreeApp(tk.Tk):
             self.status_var.set("Generating family tree...")
             self.update_idletasks()
             
-            # Create appropriate graph type
-            graph_class = EmbeddedFamilyTreeGraph if self.style_var.get().lower() == "embedded" else FamilyTreeGraph
-            self.current_graph = graph_class(xml_data_dir=xml_dir, output_format="svg")
+            # Always use D3 engine
+            self.current_graph = D3FamilyTreeGraph(xml_data_dir=xml_dir, output_format="html")
             
             # Generate the graph
             self.current_svg_path = self.current_graph.generate_graph()

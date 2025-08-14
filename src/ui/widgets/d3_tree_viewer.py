@@ -58,22 +58,21 @@ class D3FamilyTreeViewer:
         print(f"DEBUG: Script exists: {os.path.exists(script_path)}")
         
         try:
+            try:
             # Load simplified template
             with open(template_path, 'r', encoding='utf-8') as f:
                 template_content = f.read()
-            
-            print(f"DEBUG: Template loaded successfully, size: {len(template_content)} characters")
             
             # Replace the placeholder with actual character data
             html_content = template_content.replace('{CHARACTER_DATA}', character_json)
             
             # Copy the JavaScript file to the output directory
             script_output_path = os.path.join(os.path.dirname(self.html_path), 'd3_tree_script.js')
-            with open(script_path, 'r', encoding='utf-8') as f:
-                script_content = f.read()
             
-            with open(script_output_path, 'w', encoding='utf-8') as f:
-                f.write(script_content)
+            # Use a single context manager for both read and write operations
+            with open(script_path, 'r', encoding='utf-8') as src, \
+                 open(script_output_path, 'w', encoding='utf-8') as dst:
+                dst.write(src.read())
             
             print(f"DEBUG: JavaScript file copied to: {script_output_path}")
             

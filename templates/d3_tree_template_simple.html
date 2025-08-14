@@ -108,16 +108,16 @@
             transition: all 0.3s;
         }
         
-        .node:hover {
+        .node:hover rect {
             stroke: #3498db;
             stroke-width: 3px;
             filter: drop-shadow(0 0 8px rgba(52, 152, 219, 0.6));
         }
         
-        .node.selected {
-            stroke: #e74c3c;
+        .node rect.selected {
+            stroke: #f39c12;
             stroke-width: 4px;
-            filter: drop-shadow(0 0 12px rgba(231, 76, 60, 0.8));
+            filter: drop-shadow(0 0 12px rgba(243, 156, 18, 0.8));
         }
         
         .node-label {
@@ -130,17 +130,17 @@
         
         .link {
             fill: none;
-            stroke: #95a5a6;
+            stroke: #9aa5ab;
             stroke-width: 3px;
-            opacity: 0.8;
+            opacity: 0.9;
         }
         
         .spouse-link {
             fill: none;
-            stroke: #e74c3c;
-            stroke-width: 2px;
-            stroke-dasharray: 5,5;
-            opacity: 0.6;
+            stroke: #9aa5ab;
+            stroke-width: 3px;
+            stroke-dasharray: 6 6;
+            opacity: 0.95;
         }
         
         .status {
@@ -177,6 +177,40 @@
         .zoom-btn:hover {
             background: rgba(52, 152, 219, 0.9);
         }
+
+        /* Print styles for US Letter - landscape */
+        @media print {
+            @page {
+                size: Letter landscape;
+                margin: 0.5in;
+            }
+            body {
+                background: white !important;
+                overflow: visible !important;
+            }
+            .sidebar, .toolbar, .zoom-controls, .status {
+                display: none !important;
+            }
+            .container, .tree-container, #tree-svg {
+                height: auto !important;
+                min-height: 0 !important;
+            }
+            svg {
+                width: 100% !important;
+                height: 100% !important;
+            }
+        }
+
+        /* Explicit class toggled before printing to force full-bleed area */
+        body.print-mode .container {
+            height: auto;
+        }
+        body.print-mode .sidebar, 
+        body.print-mode .toolbar, 
+        body.print-mode .zoom-controls, 
+        body.print-mode .status {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -186,6 +220,7 @@
                 <button onclick="fitToWindow()">Fit to Window</button>
                 <button onclick="resetView()">Reset View</button>
                 <button onclick="centerOnSelected()">Center Selected</button>
+                <button onclick="printLetter()">Print Letter</button>
             </div>
             
             <div class="zoom-controls">

@@ -120,93 +120,6 @@
             transform: none;
         }
 
-        .engine-selector {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border: 2px solid #e2e8f0;
-        }
-
-        .engine-selector h3 {
-            margin-bottom: 15px;
-            color: #4a5568;
-            font-size: 1.2rem;
-        }
-
-        .engine-options {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .engine-option {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .engine-option:hover {
-            border-color: #667eea;
-            background: #f0f4ff;
-        }
-
-        .engine-option input[type="radio"] {
-            margin-right: 10px;
-        }
-
-        .engine-option.selected {
-            border-color: #667eea;
-            background: #e6f3ff;
-        }
-
-        .quick-test-section {
-            margin-top: 30px;
-            padding: 20px;
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-            border-radius: 15px;
-            color: white;
-            text-align: center;
-        }
-
-        .quick-test-section h3 {
-            margin-bottom: 15px;
-            font-size: 1.3rem;
-        }
-
-        .quick-test-section p {
-            margin-bottom: 20px;
-            opacity: 0.9;
-        }
-
-        .test-buttons {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .test-btn {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            padding: 12px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 600;
-        }
-
-        .test-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            border-color: rgba(255, 255, 255, 0.5);
-            transform: translateY(-2px);
-        }
-
         .btn-secondary {
             background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
         }
@@ -290,23 +203,6 @@
             font-weight: normal;
         }
 
-        .radio-group {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 15px;
-        }
-
-        .radio-group label {
-            display: flex;
-            align-items: center;
-            font-weight: normal;
-            cursor: pointer;
-        }
-
-        .radio-group input[type="radio"] {
-            margin-right: 8px;
-            transform: scale(1.1);
-        }
 
         .hidden {
             display: none;
@@ -384,44 +280,9 @@
                         </div>
                     </div>
                     
-                    <div class="radio-group">
-                        <label>
-                            <input type="radio" name="style" value="1" checked>
-                            Classic Style
-                        </label>
-                        <label>
-                            <input type="radio" name="style" value="2">
-                            Embedded Style
-                        </label>
-                    </div>
-                    
-                    <!-- Engine Selector -->
-                    <div class="engine-selector">
-                        <h3>🚀 Visualization Engine</h3>
-                        <div class="engine-options">
-                            <div class="engine-option" onclick="selectEngine('classic')">
-                                <input type="radio" name="engine" value="classic" checked>
-                                <div>
-                                    <strong>Classic Graphviz</strong><br>
-                                    <small>Traditional family tree with dotted spouse lines</small>
-                                </div>
-                            </div>
-                            <div class="engine-option" onclick="selectEngine('embedded')">
-                                <input type="radio" name="engine" value="embedded">
-                                <div>
-                                    <strong>Embedded Graphviz</strong><br>
-                                    <small>Spouses connected with diamond nodes</small>
-                                </div>
-                            </div>
-                            <div class="engine-option" onclick="selectEngine('d3')">
-                                <input type="radio" name="engine" value="d3">
-                                <div>
-                                    <strong>D3.js Interactive</strong><br>
-                                    <small>Best for large trees with zoom & pan</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Hidden inputs - always D3 with style 1 -->
+                    <input type="hidden" name="engine" value="d3">
+                    <input type="hidden" name="style" value="1">
                     
                     <button type="submit" class="btn" id="visualize-btn" disabled>
                         🎯 Generate Visualization
@@ -440,22 +301,6 @@
             <iframe id="visualization-frame" class="visualization-frame hidden"></iframe>
         </div>
 
-        <!-- Quick Test Section -->
-        <div class="quick-test-section">
-            <h3>🧪 Quick Testing</h3>
-            <p>Test different visualization engines with the Kearnan Family dataset</p>
-            <div class="test-buttons">
-                <button class="test-btn" onclick="quickTest('classic')">
-                    🎨 Test Classic Graphviz
-                </button>
-                <button class="test-btn" onclick="quickTest('embedded')">
-                    💎 Test Embedded Graphviz
-                </button>
-                <button class="test-btn" onclick="quickTest('d3')">
-                    🌟 Test D3.js Interactive
-                </button>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -593,8 +438,8 @@
             const startPerson = startPersonSelect.value;
             const generationsBack = parseInt(document.getElementById('generations-back').value) || 0;
             const generationsForward = parseInt(document.getElementById('generations-forward').value) || 0;
-            const style = document.querySelector('input[name="style"]:checked').value;
-            const engine = document.querySelector('input[name="engine"]:checked').value;
+            const style = document.querySelector('input[name="style"]').value;
+            const engine = document.querySelector('input[name="engine"]').value;
             
             if (!generateAll && !startPerson) {
                 showStatus('Please select a starting person or check "Generate Complete Tree"', 'error');
@@ -649,84 +494,6 @@
             } finally {
                 visualizeBtn.disabled = false;
                 visualizeBtn.textContent = '🎯 Generate Visualization';
-            }
-        }
-
-        function selectEngine(engine) {
-            // Update radio button
-            document.querySelector(`input[name="engine"][value="${engine}"]`).checked = true;
-            
-            // Update visual selection
-            document.querySelectorAll('.engine-option').forEach(option => {
-                option.classList.remove('selected');
-            });
-            event.currentTarget.classList.add('selected');
-        }
-
-        async function quickTest(engine) {
-            showStatus(`Loading Kearnan Family data and testing ${engine} engine...`, 'info');
-            
-            try {
-                // First, load the Kearnan Family data
-                const loadResponse = await fetch('/load-kearnan', {
-                    method: 'POST'
-                });
-                
-                if (!loadResponse.ok) {
-                    throw new Error(`HTTP error! status: ${loadResponse.status}`);
-                }
-                
-                const loadResult = await loadResponse.json();
-                
-                if (!loadResult.success) {
-                    throw new Error(loadResult.error);
-                }
-                
-                showStatus(loadResult.message, 'success');
-                
-                // Update character list
-                currentCharacters = loadResult.characters;
-                populateCharacterSelect();
-                
-                // Set the engine
-                selectEngine(engine);
-                
-                // Generate visualization with complete tree
-                const response = await fetch('/visualize', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        generate_all: true,
-                        start_person: '',
-                        generations_back: 0,
-                        generations_forward: 0,
-                        style: '1',
-                        engine: engine
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showStatus(`✅ ${engine} visualization generated successfully with ${result.character_count} characters`, 'success');
-                    
-                    // Display the visualization
-                    const filename = result.visualization_path.split('/').pop();
-                    visualizationFrame.src = `/visualization/${filename}`;
-                    visualizationContainer.classList.remove('hidden');
-                    loading.classList.add('hidden');
-                    visualizationFrame.classList.remove('hidden');
-                } else {
-                    showStatus(result.error, 'error');
-                }
-            } catch (error) {
-                showStatus('Error during quick test: ' + error.message, 'error');
             }
         }
 
