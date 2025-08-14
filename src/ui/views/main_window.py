@@ -16,9 +16,10 @@ class MainWindow(ctk.CTk):
         self.geometry("1200x800")
         self.minsize(800, 600)  # Set minimum window size
         
-        # Configure grid layout (2 columns: sidebar and content)
+        # Configure grid layout (3 columns: sidebar, content, and node info)
         self.grid_columnconfigure(0, weight=0)  # Sidebar - fixed width
         self.grid_columnconfigure(1, weight=1)  # Content - expandable
+        self.grid_columnconfigure(2, weight=0)  # Node info panel - fixed width
         self.grid_rowconfigure(0, weight=1)     # Full height
         
         # Create sidebar frame with widgets
@@ -69,9 +70,19 @@ class MainWindow(ctk.CTk):
         )
         self.reload_button.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
         
+        # Add open in browser button
+        self.open_browser_button = ctk.CTkButton(
+            self.sidebar_frame,
+            text="Open in Browser",
+            command=self.open_in_browser,
+            height=40,
+            state="disabled"  # Initially disabled
+        )
+        self.open_browser_button.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
+        
         # Status label with scrollable text
         self.status_frame = ctk.CTkFrame(self.sidebar_frame)
-        self.status_frame.grid(row=5, column=0, padx=20, pady=10, sticky="nsew")
+        self.status_frame.grid(row=6, column=0, padx=20, pady=10, sticky="nsew")
         self.status_frame.grid_rowconfigure(0, weight=1)
         self.status_frame.grid_columnconfigure(0, weight=1)
         
@@ -89,6 +100,29 @@ class MainWindow(ctk.CTk):
         self.content_frame.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
         self.content_frame.grid_columnconfigure(0, weight=1)
         self.content_frame.grid_rowconfigure(0, weight=1)
+        
+        # Create node info panel on the right side
+        self.node_info_frame = ctk.CTkFrame(self, width=300, corner_radius=0)
+        self.node_info_frame.grid(row=0, column=2, sticky="nsew", padx=0, pady=0)
+        self.node_info_frame.grid_propagate(False)  # Maintain fixed width
+        
+        # Node info panel title
+        self.node_info_title = ctk.CTkLabel(
+            self.node_info_frame,
+            text="Node Information",
+            font=ctk.CTkFont(size=16, weight="bold")
+        )
+        self.node_info_title.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="ew")
+        
+        # Node info text area
+        self.node_info_text = ctk.CTkTextbox(
+            self.node_info_frame,
+            width=280,
+            height=400,
+            font=ctk.CTkFont(size=12)
+        )
+        self.node_info_text.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="nsew")
+        self.node_info_frame.grid_rowconfigure(1, weight=1)
         
         # Placeholder for tree visualization
         self.tree_view = ctk.CTkLabel(
@@ -108,6 +142,7 @@ class MainWindow(ctk.CTk):
         self._on_visualize: Optional[Callable[[], None]] = None
         self._on_settings: Optional[Callable[[], None]] = None
         self._on_reload: Optional[Callable[[], None]] = None
+        self._on_open_browser: Optional[Callable[[], None]] = None
         
         # Bind window close event
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -124,12 +159,14 @@ class MainWindow(ctk.CTk):
                      on_data_loaded: Optional[Callable[[str, str], None]] = None,
                      on_visualize: Optional[Callable[[], None]] = None,
                      on_settings: Optional[Callable[[], None]] = None,
-                     on_reload: Optional[Callable[[], None]] = None):
+                     on_reload: Optional[Callable[[], None]] = None,
+                     on_open_browser: Optional[Callable[[], None]] = None):
         """Set callback handlers for UI events"""
         self._on_data_loaded = on_data_loaded
         self._on_visualize = on_visualize
         self._on_settings = on_settings
         self._on_reload = on_reload
+        self._on_open_browser = on_open_browser
     
     def load_data(self):
         """Handle loading data from Excel/XML files"""
@@ -258,6 +295,21 @@ class MainWindow(ctk.CTk):
             import traceback
             print(traceback.format_exc())
     
+    def update_node_info(self, info_text: str):
+        """Update the node information panel with new content"""
+        try:
+            self.node_info_text.delete("1.0", "end")
+            self.node_info_text.insert("1.0", info_text)
+        except Exception as e:
+            print(f"DEBUG: Error updating node info: {e}")
+    
+    def clear_node_info(self):
+        """Clear the node information panel"""
+        try:
+            self.node_info_text.delete("1.0", "end")
+        except Exception as e:
+            print(f"DEBUG: Error clearing node info: {e}")
+    
     def reload_visualization(self):
         """Reload the last dataset"""
         try:
@@ -270,6 +322,25 @@ class MainWindow(ctk.CTk):
         except Exception as e:
             print(f"DEBUG: Error reloading dataset: {e}")
             self.show_error(f"Error reloading dataset: {str(e)}")
+    
+    def open_in_browser(self):
+        """Open the current visualization in browser"""
+        try:
+            if self._on_open_browser:
+                self._on_open_browser()
+            else:
+                self.show_error("Open in browser functionality not available")
+        except Exception as e:
+            print(f"DEBUG: Error opening in browser: {e}")
+            self.show_error(f"Error opening in browser: {str(e)}")
+    
+    def enable_open_browser_button(self):
+        """Enable the Open in Browser button"""
+        self.open_browser_button.configure(state="normal")
+    
+    def disable_open_browser_button(self):
+        """Disable the Open in Browser button"""
+        self.open_browser_button.configure(state="disabled")
     
     def show_coming_soon_dialog(self, node_id: str = None):
         """Show a Coming Soon dialog for future node detail features"""
