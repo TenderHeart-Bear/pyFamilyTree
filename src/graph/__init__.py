@@ -3,7 +3,6 @@ Graph package for family tree visualization
 """
 
 from .base import RelGraph
-from .family import FamilyTreeGraph
-from .embedded_family import EmbeddedFamilyTreeGraph
+from .d3_family import D3FamilyTreeGraph
 
-__all__ = ['RelGraph', 'FamilyTreeGraph', 'EmbeddedFamilyTreeGraph'] 
+__all__ = ['RelGraph', 'D3FamilyTreeGraph'] 

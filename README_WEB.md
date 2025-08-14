@@ -1,6 +1,6 @@
 # Family Tree Visualizer - Web Version
 
-A modern web-based family tree visualization tool that can work offline. This web application provides an intuitive interface for visualizing and exploring family relationships through interactive diagrams.
+A modern web-based family tree visualization tool that can work offline. This web application provides the same functionality as the desktop version but accessible through any web browser.
 
 ## 🌟 Features
 
@@ -8,11 +8,9 @@ A modern web-based family tree visualization tool that can work offline. This we
 - **Offline Capable**: Works without internet connection once loaded
 - **File Upload**: Upload Excel files directly through the web interface
 - **Interactive Visualizations**: Generate and view family tree visualizations in real-time
-- **D3.js Visualization**: Beautiful, interactive tree diagrams with zoom and pan capabilities
+- **Multiple Styles**: Choose between Classic and Embedded visualization styles
 - **Flexible Generation**: Generate complete trees or specific family branches
 - **Real-time Status**: Live updates on processing status and character counts
-- **Session Management**: Improved state handling with Flask sessions
-- **Memory Efficient**: Optimized resource management and cleanup
 
 ## 🚀 Quick Start
 
@@ -23,23 +21,17 @@ A modern web-based family tree visualization tool that can work offline. This we
 
 ### Installation
 
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/yourusername/pyFamilyTree.git
-   cd pyFamilyTree
-   ```
-
-2. **Install Dependencies**:
+1. **Install Dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Run the Web Application**:
+2. **Run the Web Application**:
    ```bash
    python web_app.py
    ```
 
-4. **Access the Application**:
+3. **Access the Application**:
    - Open your web browser
    - Navigate to `http://localhost:5000`
    - The application will be ready to use!
@@ -49,18 +41,12 @@ A modern web-based family tree visualization tool that can work offline. This we
 ```
 pyFamilyTree/
 ├── web_app.py              # Main Flask application
-├── templates/              # Web templates
-│   ├── index.html         # Main web interface
-│   ├── d3_tree_script.js  # D3.js visualization logic
-│   └── d3_tree_template_simple.html
-├── uploads/               # Temporary file upload directory
-├── assets/               # Generated XML files
-├── src/                  # Core application modules
-│   ├── core/            # Core functionality
-│   ├── data/            # Data handling
-│   ├── graph/           # Graph generation
-│   └── ui/              # User interface components
-└── requirements.txt      # Python dependencies
+├── templates/
+│   └── index.html          # Main web interface
+├── uploads/                # Temporary file upload directory
+├── assets/                 # Generated XML files
+├── src/                    # Core application modules
+└── requirements.txt        # Python dependencies
 ```
 
 ## 🎯 Usage
@@ -81,12 +67,15 @@ pyFamilyTree/
    - **Generations Back**: Number of ancestor generations to include
    - **Generations Forward**: Number of descendant generations to include
 
+3. **Select Style**:
+   - **Classic Style**: Traditional family tree with dotted lines between spouses
+   - **Embedded Style**: Modern style with diamond nodes connecting spouses
+
 ### 3. Generate Visualization
 
 1. Click "Generate Visualization"
 2. Wait for processing to complete
 3. View the interactive family tree in the embedded viewer
-4. Use mouse wheel to zoom and drag to pan around the visualization
 
 ## 🔧 Configuration
 
@@ -97,11 +86,10 @@ pyFamilyTree/
 
 ### Application Settings
 
-The web application uses Flask session management for improved state handling:
-- Secure session management
-- Automatic cleanup of old sessions
-- Proper resource management
-- Efficient file handling
+The web application uses the same configuration as the desktop version:
+- Session management through `path_manager`
+- XML data processing through existing modules
+- Graph generation using existing `FamilyTreeGraph` classes
 
 ## 🌐 Offline Capabilities
 
@@ -111,6 +99,13 @@ The web application is designed to work offline:
 - **Local Processing**: All data processing happens on the server
 - **No External Dependencies**: No CDN or external API calls required
 - **File-based Storage**: Uses local file system for data storage
+
+## 🔒 Security Features
+
+- **File Type Validation**: Only accepts Excel files (.xlsx, .xls)
+- **Secure Filename Handling**: Uses `secure_filename` for uploaded files
+- **File Size Limits**: Configurable maximum file size (default: 16MB)
+- **Session Management**: Isolated processing sessions
 
 ## 📊 API Endpoints
 
@@ -140,10 +135,43 @@ python web_app.py
 
 ### Testing
 
-The application includes test data:
-- Sample Excel files for testing
+The web application uses the same test data as the desktop version:
+- Excel files in the root directory
 - XML files in the `assets/` directory
 - Test data in `assets/FamilyTree_TestData/`
+
+## 🔄 Integration with Desktop Version
+
+The web version shares the same core modules as the desktop version:
+- `src/data/excel_converter.py` - Excel to XML conversion
+- `src/graph/family.py` - Family tree graph generation
+- `src/data/xml_parser.py` - XML data processing
+- `src/core/path_manager.py` - Session and path management
+
+## 🚀 Deployment
+
+### Local Development
+```bash
+python web_app.py
+```
+
+### Production Deployment
+```bash
+# Using Gunicorn (recommended for production)
+pip install gunicorn
+gunicorn -w 4 -b 0.0.0.0:5000 web_app:app
+```
+
+### Docker Deployment
+```dockerfile
+FROM python:3.9-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+EXPOSE 5000
+CMD ["python", "web_app.py"]
+```
 
 ## 📝 Troubleshooting
 
@@ -158,9 +186,9 @@ The application includes test data:
    - Verify sheet name exists in Excel file
 
 3. **Visualization Generation Fails**:
-   - Check server logs for detailed error messages
+   - Check that Graphviz is installed
    - Verify XML files were created successfully
-   - Ensure proper file permissions
+   - Check server logs for detailed error messages
 
 ### Debug Mode
 
@@ -179,8 +207,8 @@ app.run(debug=True, host='0.0.0.0', port=5000)
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the same terms as the main family tree application.
 
 ---
 
-**Note**: This web version is the primary interface for the Family Tree Visualizer, offering a modern and accessible way to explore and visualize family relationships.
+**Note**: This web version maintains full compatibility with the existing desktop application while providing a modern web interface for easier access and sharing. 

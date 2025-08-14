@@ -654,6 +654,86 @@ class AppController:
             if self.main_window:
                 self.main_window.show_error(f"Error exporting visualization: {str(e)}")
 
+    def _show_visualization(self, output_path: str, export_format: str):
+        """Show the generated visualization in the appropriate viewer"""
+        try:
+            print(f"DEBUG: Showing visualization: {output_path} (format: {export_format})")
+            
+            if export_format.lower() == 'html':
+                # Open HTML file in browser
+                import webbrowser
+                webbrowser.open(f"file://{os.path.abspath(output_path)}")
+                print(f"DEBUG: Opened HTML visualization in browser")
+            elif export_format.lower() in ['svg', 'png']:
+                # Show in embedded viewer or fallback to browser
+                if self.main_window:
+                    try:
+                        # Check if main window has a show_visualization method
+                        if hasattr(self.main_window, 'show_visualization'):
+                            self.main_window.show_visualization(output_path)
+                            print(f"DEBUG: Displayed visualization in main window")
+                        else:
+                            # Fallback to system default
+                            import webbrowser
+                            webbrowser.open(f"file://{os.path.abspath(output_path)}")
+                            print(f"DEBUG: Opened visualization with system default")
+                    except Exception as viewer_error:
+                        print(f"DEBUG: Could not show in embedded viewer: {viewer_error}")
+                        # Fallback to system default
+                        import webbrowser
+                        webbrowser.open(f"file://{os.path.abspath(output_path)}")
+                        print(f"DEBUG: Opened visualization with system default")
+            
+            # Update status
+            if self.main_window:
+                self.main_window.update_status(f"Visualization generated: {os.path.basename(output_path)}")
+                
+        except Exception as e:
+            print(f"DEBUG ERROR: Error showing visualization: {str(e)}")
+            if hasattr(e, '__traceback__'):
+                import traceback
+                print(traceback.format_exc())
+            if self.main_window:
+                self.main_window.show_error(f"Error showing visualization: {str(e)}")
+    
+    def _auto_export_visualization(self, output_path: str, export_format: str):
+        """Auto-export visualization in additional formats if enabled"""
+        try:
+            export_settings = self.settings.get('export', {})
+            auto_export = export_settings.get('auto_export', False)
+            
+            if not auto_export:
+                return
+            
+            print(f"DEBUG: Auto-exporting visualization from {output_path}")
+            
+            # Get base path without extension
+            base_path = os.path.splitext(output_path)[0]
+            
+            # Export to PNG if not already PNG
+            if export_format.lower() != 'png':
+                png_path = f"{base_path}.png"
+                if output_path.endswith('.svg'):
+                    cairosvg.svg2png(
+                        url=output_path,
+                        write_to=png_path,
+                        output_width=1600,
+                        output_height=1200
+                    )
+                    print(f"DEBUG: Auto-exported PNG to {png_path}")
+            
+            # Export to SVG if not already SVG
+            if export_format.lower() != 'svg' and self.current_graph:
+                svg_path = self.current_graph.get_svg_path()
+                if os.path.exists(svg_path):
+                    print(f"DEBUG: SVG already available at {svg_path}")
+                    
+        except Exception as e:
+            print(f"DEBUG ERROR: Error in auto-export: {str(e)}")
+            if hasattr(e, '__traceback__'):
+                import traceback
+                print(traceback.format_exc())
+    
     def _save_last_dataset(self, file_path: str, sheet_name: str, xml_dir: str):
         """Save last dataset information for reload functionality"""
         try:
