@@ -37,7 +37,9 @@ class CharacterData:
         # Extract all elements
         for child in root:
             if child is not None and child.text is not None and child.text.strip():
-                character_data[child.tag.lower()] = child.text.strip()
+                key = child.tag.lower()
+                value = child.text.strip()
+                character_data[key] = value
 
         # Ensure critical fields exist
         critical_fields = [
@@ -81,11 +83,12 @@ class FamilyTreeData:
             print(f"Warning: Directory {self.root_folder} does not exist")
             return
             
-        for item in os.listdir(self.root_folder):
-            if item.endswith(".xml"):
-                file_path = os.path.join(self.root_folder, item)
-                if os.path.isfile(file_path):
-                    self._process_xml_file(file_path)
+        xml_files = [f for f in os.listdir(self.root_folder) if f.endswith(".xml")]
+        
+        for item in sorted(xml_files):  # Sort for consistent loading order
+            file_path = os.path.join(self.root_folder, item)
+            if os.path.isfile(file_path):
+                self._process_xml_file(file_path)
                     
         print(f"--- Loaded {len(self.characters_by_id)} characters and {len(self.id_to_name_map)} ID-to-name mappings ---")
 

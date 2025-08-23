@@ -19,10 +19,108 @@
             color: #333;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 2px 0 20px rgba(0,0,0,0.1);
+            transition: width 0.3s ease;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .sidebar.collapsed {
+            width: 70px;
+        }
+
+        .sidebar.expanded {
+            width: 300px;
+        }
+
+        .sidebar-toggle {
+            position: absolute;
+            top: 20px;
+            right: -15px;
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .sidebar-toggle.collapsed {
+            transform: rotate(180deg);
+        }
+
+        .sidebar-content {
             padding: 20px;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            margin-bottom: 30px;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar.collapsed .sidebar-section {
+            opacity: 0;
+        }
+
+        .sidebar-section h2 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-section h2 .icon {
+            font-size: 1.5rem;
+        }
+
+        .sidebar.collapsed .sidebar-section h2 .text {
+            display: none;
+        }
+
+        .sidebar.collapsed .sidebar-section h2 .icon {
+            margin: 0 auto;
+        }
+
+        .sidebar.collapsed .sidebar-section h2 {
+            justify-content: center;
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 15px;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
         }
 
         .header {
@@ -35,18 +133,6 @@
             font-size: 2.5rem;
             margin-bottom: 10px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
-        }
-
-        .main-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 30px;
         }
 
         .card {
@@ -150,7 +236,6 @@
         }
 
         .visualization-container {
-            grid-column: 1 / -1;
             background: white;
             border-radius: 15px;
             padding: 25px;
@@ -203,104 +288,131 @@
             font-weight: normal;
         }
 
-
         .hidden {
             display: none;
         }
 
+        /* Responsive adjustments */
         @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-                gap: 20px;
+            .app-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100% !important;
+                height: auto;
+                position: relative;
+            }
+            
+            .sidebar-toggle {
+                display: none;
+            }
+            
+            .sidebar-content {
+                padding: 15px;
             }
             
             .header h1 {
                 font-size: 2rem;
             }
             
-            .container {
+            .main-content {
                 padding: 15px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🌳 Family Tree Visualizer</h1>
-            <p>Web-based family tree visualization tool with offline capabilities</p>
+    <div class="app-container">
+        <!-- Left Sidebar -->
+        <div class="sidebar expanded" id="sidebar">
+            <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle Sidebar">
+                ◀
+            </button>
+            
+            <div class="sidebar-content">
+                <!-- Upload Family Data Section -->
+                <div class="sidebar-section">
+                    <h2>
+                        <span class="icon">📁</span>
+                        <span class="text">Upload Family Data</span>
+                    </h2>
+                    <form id="upload-form">
+                        <div class="form-group">
+                            <label for="file-input">Select Excel File:</label>
+                            <input type="file" id="file-input" class="form-control" accept=".xlsx,.xls,.xlsm" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="sheet-name">Sheet Name:</label>
+                            <input type="text" id="sheet-name" class="form-control" placeholder="Enter sheet name" required>
+                        </div>
+                        <button type="submit" class="btn" id="upload-btn">
+                            📤 Upload & Process
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Visualization Settings Section -->
+                <div class="sidebar-section">
+                    <h2>
+                        <span class="icon">🎨</span>
+                        <span class="text">Visualization Settings</span>
+                    </h2>
+                    <form id="visualize-form">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="generate-all" name="generate_all">
+                            <label for="generate-all">Generate Complete Tree</label>
+                        </div>
+                        
+                        <div id="specific-settings">
+                            <div class="form-group">
+                                <label for="start-person">Starting Person (optional):</label>
+                                <select id="start-person" class="form-control">
+                                    <option value="">Select a person...</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="generations-back">Generations Back (ancestors):</label>
+                                <input type="number" id="generations-back" class="form-control" value="0" min="0">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="generations-forward">Generations Forward (descendants):</label>
+                                <input type="number" id="generations-forward" class="form-control" value="0" min="0">
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden inputs - always D3 with style 1 -->
+                        <input type="hidden" name="engine" value="d3">
+                        <input type="hidden" name="style" value="1">
+                        
+                        <button type="submit" class="btn" id="visualize-btn" disabled>
+                            🎯 Generate Visualization
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
 
-        <div id="status-message"></div>
-
+        <!-- Main Content Area -->
         <div class="main-content">
-            <!-- File Upload Section -->
-            <div class="card">
-                <h2>📁 Upload Family Data</h2>
-                <form id="upload-form">
-                    <div class="form-group">
-                        <label for="file-input">Select Excel File:</label>
-                        <input type="file" id="file-input" class="form-control" accept=".xlsx,.xls,.xlsm" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="sheet-name">Sheet Name:</label>
-                        <input type="text" id="sheet-name" class="form-control" placeholder="Enter sheet name" required>
-                    </div>
-                    <button type="submit" class="btn" id="upload-btn">
-                        📤 Upload & Process
-                    </button>
-                </form>
+            <div class="header">
+                <h1>🌳 Family Tree Visualizer</h1>
             </div>
 
-            <!-- Visualization Settings -->
-            <div class="card">
-                <h2>🎨 Visualization Settings</h2>
-                <form id="visualize-form">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="generate-all" name="generate_all">
-                        <label for="generate-all">Generate Complete Tree</label>
-                    </div>
-                    
-                    <div id="specific-settings">
-                        <div class="form-group">
-                            <label for="start-person">Starting Person (optional):</label>
-                            <select id="start-person" class="form-control">
-                                <option value="">Select a person...</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="generations-back">Generations Back (ancestors):</label>
-                            <input type="number" id="generations-back" class="form-control" value="0" min="0">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="generations-forward">Generations Forward (descendants):</label>
-                            <input type="number" id="generations-forward" class="form-control" value="0" min="0">
-                        </div>
-                    </div>
-                    
-                    <!-- Hidden inputs - always D3 with style 1 -->
-                    <input type="hidden" name="engine" value="d3">
-                    <input type="hidden" name="style" value="1">
-                    
-                    <button type="submit" class="btn" id="visualize-btn" disabled>
-                        🎯 Generate Visualization
-                    </button>
-                </form>
+            <div id="status-message"></div>
+
+            <!-- Visualization Display -->
+            <div class="visualization-container hidden" id="visualization-container">
+                <h2>🌳 Family Tree Visualization</h2>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Generating visualization...</p>
+                </div>
+                <iframe id="visualization-frame" class="visualization-frame hidden"></iframe>
             </div>
         </div>
-
-        <!-- Visualization Display -->
-        <div class="visualization-container hidden" id="visualization-container">
-            <h2>🌳 Family Tree Visualization</h2>
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p>Generating visualization...</p>
-            </div>
-            <iframe id="visualization-frame" class="visualization-frame hidden"></iframe>
-        </div>
-
     </div>
 
     <script>
@@ -309,6 +421,8 @@
         let currentStatus = {};
 
         // DOM elements
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
         const uploadForm = document.getElementById('upload-form');
         const visualizeForm = document.getElementById('visualize-form');
         const fileInput = document.getElementById('file-input');
@@ -322,6 +436,21 @@
         const visualizationContainer = document.getElementById('visualization-container');
         const loading = document.getElementById('loading');
         const visualizationFrame = document.getElementById('visualization-frame');
+
+        // Sidebar toggle functionality
+        sidebarToggle.addEventListener('click', () => {
+            if (sidebar.classList.contains('expanded')) {
+                sidebar.classList.remove('expanded');
+                sidebar.classList.add('collapsed');
+                sidebarToggle.classList.add('collapsed');
+                sidebarToggle.title = 'Expand Sidebar';
+            } else {
+                sidebar.classList.remove('collapsed');
+                sidebar.classList.add('expanded');
+                sidebarToggle.classList.remove('collapsed');
+                sidebarToggle.title = 'Collapse Sidebar';
+            }
+        });
 
         // Event listeners
         uploadForm.addEventListener('submit', handleFileUpload);
@@ -353,11 +482,12 @@
                 })
                 .then(data => {
                     currentStatus = data;
-                    if (data.data_loaded) {
+                    if (data.data_loaded && data.current_file && data.character_count > 0) {
                         visualizeBtn.disabled = false;
                         showStatus(`Data loaded: ${data.current_file} (${data.character_count} characters)`, 'success');
                     } else {
                         visualizeBtn.disabled = true;
+                        // Don't show any message on page load if no real data is loaded
                     }
                 })
                 .catch(error => {
@@ -426,7 +556,12 @@
             currentCharacters.forEach(character => {
                 const option = document.createElement('option');
                 option.value = character.id;
-                option.textContent = character.name;
+                // Create a display name with distinguishing information
+                let displayName = character.name;
+                if (character.birthday) {
+                    displayName += ` (b. ${character.birthday})`;
+                }
+                option.textContent = displayName;
                 startPersonSelect.appendChild(option);
             });
         }
@@ -440,6 +575,15 @@
             const generationsForward = parseInt(document.getElementById('generations-forward').value) || 0;
             const style = document.querySelector('input[name="style"]').value;
             const engine = document.querySelector('input[name="engine"]').value;
+            
+            console.log('=== FRONTEND VISUALIZATION REQUEST ===');
+            console.log('generateAll:', generateAll, typeof generateAll);
+            console.log('startPerson:', startPerson, typeof startPerson);
+            console.log('generationsBack:', generationsBack, typeof generationsBack);
+            console.log('generationsForward:', generationsForward, typeof generationsForward);
+            console.log('style:', style, typeof style);
+            console.log('engine:', engine, typeof engine);
+            console.log('=== END FRONTEND DEBUG ===');
             
             if (!generateAll && !startPerson) {
                 showStatus('Please select a starting person or check "Generate Complete Tree"', 'error');

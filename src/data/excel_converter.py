@@ -138,12 +138,8 @@ def create_xml_from_excel_sheet(excel_file_path: str, sheet_name: str,
         # Ensure output directory exists
         os.makedirs(output_dir, exist_ok=True)
         
-        print(f"DEBUG: Converting Excel sheet '{sheet_name}' to XML")
-        print(f"DEBUG: Output directory: {output_dir}")
-        
         # Read Excel file
         df = pd.read_excel(excel_file_path, sheet_name=sheet_name)
-        print(f"DEBUG: Read {len(df)} rows from Excel sheet")
         
         # Group by character (assuming each row is a character)
         characters = {}
@@ -168,11 +164,9 @@ def create_xml_from_excel_sheet(excel_file_path: str, sheet_name: str,
             xml_file_path = os.path.join(output_dir, f"{char_id}.xml")
             create_character_xml(char_data, xml_file_path)
         
-        print(f"DEBUG: Created {len(characters)} XML files in {output_dir}")
         return output_dir
         
     except Exception as e:
-        print(f"ERROR: Failed to convert Excel to XML: {str(e)}")
         raise e
 
 def create_character_xml(char_data: Dict[str, Any], output_file: str):
@@ -217,9 +211,6 @@ def create_xml_from_excel_sheet(excel_file_path: str, sheet_name: str, output_xm
         # Create output directory if it doesn't exist
         os.makedirs(output_xml_dir, exist_ok=True)
         
-        print(f"\nDEBUG: Processing Excel file: {excel_file_path}")
-        print(f"DEBUG: Sheet name: {sheet_name}")
-        print(f"DEBUG: Output directory: {output_xml_dir}")
         
         # Load Excel workbook
         workbook = openpyxl.load_workbook(excel_file_path, data_only=True)
@@ -229,12 +220,11 @@ def create_xml_from_excel_sheet(excel_file_path: str, sheet_name: str, output_xm
             raise ValueError(f"Sheet '{sheet_name}' not found in workbook")
         
         worksheet = workbook[sheet_name]
-        print(f"DEBUG: Worksheet loaded, dimensions: {worksheet.dimensions}")
+
         
         # Get headers from first row and sanitize them
         headers = [cell.value for cell in worksheet[1] if cell.value]
-        print(f"DEBUG: Headers found: {headers}")
-        
+       
         # Track which XML files to delete
         existing_files = set()
         for file in os.listdir(output_xml_dir):
@@ -253,7 +243,7 @@ def create_xml_from_excel_sheet(excel_file_path: str, sheet_name: str, output_xm
             # Extract ID
             char_id = row_data.get('ID')
             if not char_id:
-                print(f"DEBUG: Skipping row without ID: {row_data}")
+
                 continue
             
             xml_file = os.path.join(output_xml_dir, f"{char_id}.xml")
@@ -309,14 +299,14 @@ def create_xml_from_excel_sheet(excel_file_path: str, sheet_name: str, output_xm
             # Write XML file
             tree = ET.ElementTree(root)
             tree.write(xml_file, encoding='utf-8', xml_declaration=True)
-            print(f"DEBUG: Created XML file: {xml_file}")
+
         
         # Delete any old files that weren't recreated
         files_to_delete = existing_files - files_created
         for file in files_to_delete:
             try:
                 os.remove(file)
-                print(f"DEBUG: Deleted old XML file: {file}")
+
             except OSError as e:
                 print(f"Warning: Could not delete old XML file {file}: {e}")
         
