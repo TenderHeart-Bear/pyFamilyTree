@@ -17,12 +17,211 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: #333;
+            overflow: hidden; /* Prevent page scrolling */
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        .app-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Drawer Styles */
+        .drawer {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 2px 0 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            overflow: hidden;
+            position: relative;
+            z-index: 1000;
+        }
+
+        .drawer.left {
+            left: 0;
+            box-shadow: 2px 0 20px rgba(0,0,0,0.1);
+        }
+
+        .drawer.right {
+            right: 0;
+            box-shadow: -2px 0 20px rgba(0,0,0,0.1);
+        }
+
+        .drawer.collapsed {
+            width: 70px;
+        }
+
+        .drawer.expanded {
+            width: 300px;
+            position: absolute;
+            top: 0;
+            height: 100vh;
+        }
+
+        .drawer.left.expanded {
+            left: 0;
+        }
+
+        .drawer.right.expanded {
+            right: 0;
+        }
+
+        .drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 20px 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .drawer.collapsed .drawer-header {
+            padding: 20px 0 15px 0;
+            justify-content: center;
+        }
+
+        .drawer-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .drawer.collapsed .drawer-title {
+            display: none;
+        }
+
+        .drawer-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .drawer.collapsed .drawer-controls {
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .drawer-toggle {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            width: 30px;
+            height: 30px;
+            transition: transform 0.3s ease;
+        }
+
+        .drawer-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .drawer-toggle.expanded {
+            transform: rotate(180deg);
+        }
+
+        .cog-wheel {
+            background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            width: 30px;
+            height: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .cog-wheel:hover {
+            transform: scale(1.1);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .drawer-content {
+            padding: 20px 0;
+            height: calc(100vh - 80px);
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+            margin: 5px 0;
+        }
+
+        .drawer.right .nav-item {
+            border-left: none;
+            border-right: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: rgba(102, 126, 234, 0.1);
+            border-left-color: #667eea;
+        }
+
+        .drawer.right .nav-item:hover {
+            border-left-color: transparent;
+            border-right-color: #667eea;
+        }
+
+        .nav-item.active {
+            background: rgba(102, 126, 234, 0.15);
+            border-left-color: #667eea;
+        }
+
+        .drawer.right .nav-item.active {
+            border-left-color: transparent;
+            border-right-color: #667eea;
+        }
+
+        .nav-item .icon {
+            font-size: 1.5rem;
+            margin-right: 15px;
+            min-width: 24px;
+            text-align: center;
+        }
+
+        .drawer.right .nav-item .icon {
+            margin-right: 0;
+            margin-left: 15px;
+        }
+
+        .nav-item .text {
+            font-weight: 500;
+            color: #4a5568;
+            white-space: nowrap;
+        }
+
+        .drawer.collapsed .nav-item .text {
+            display: none;
+        }
+
+        .drawer.collapsed .nav-item {
+            justify-content: center;
+            padding: 15px 0;
+        }
+
+        .drawer.collapsed .nav-item .icon {
+            margin-right: 0;
+            margin-left: 0;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            flex: 1;
             padding: 20px;
+            overflow-y: auto;
+            height: 100vh;
+            position: relative;
         }
 
         .header {
@@ -37,24 +236,13 @@
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
-        .header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
-        }
-
-        .main-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 30px;
-        }
-
         .card {
             background: white;
             border-radius: 15px;
             padding: 25px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
+            margin-bottom: 30px;
         }
 
         .card:hover {
@@ -150,7 +338,6 @@
         }
 
         .visualization-container {
-            grid-column: 1 / -1;
             background: white;
             border-radius: 15px;
             padding: 25px;
@@ -203,112 +390,297 @@
             font-weight: normal;
         }
 
-
         .hidden {
             display: none;
         }
 
+        /* Page sections */
+        .page-section {
+            display: none;
+        }
+
+        .page-section.active {
+            display: block;
+        }
+
+        /* Settings Modal */
+        .settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .settings-modal.active {
+            display: flex;
+        }
+
+        .settings-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .settings-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 25px;
+        }
+
+        .settings-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .close-settings {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #718096;
+            padding: 5px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .close-settings:hover {
+            background: #f7fafc;
+            color: #4a5568;
+        }
+
+        .setting-group {
+            margin-bottom: 20px;
+        }
+
+        .setting-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .setting-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+            cursor: pointer;
+        }
+
+        .setting-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Responsive adjustments */
         @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-                gap: 20px;
+            .app-container {
+                flex-direction: column;
+            }
+            
+            .drawer {
+                width: 100% !important;
+                height: auto;
+                position: relative;
+            }
+            
+            .drawer.expanded {
+                position: relative;
+                width: 100% !important;
+            }
+            
+            .drawer-header {
+                padding: 15px;
+            }
+            
+            .drawer-content {
+                padding: 15px;
+                height: auto;
             }
             
             .header h1 {
                 font-size: 2rem;
             }
             
-            .container {
+            .main-content {
                 padding: 15px;
+                height: auto;
+                overflow-y: visible;
+            }
+            
+            body {
+                overflow-y: auto;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🌳 Family Tree Visualizer</h1>
-            <p>Web-based family tree visualization tool with offline capabilities</p>
+    <div class="app-container">
+        <!-- Left Drawer -->
+        <div class="drawer left collapsed" id="drawer">
+            <div class="drawer-header">
+                <div class="drawer-title">Menu</div>
+                <div class="drawer-controls">
+                    <button class="drawer-toggle" id="drawer-toggle" title="Expand Menu">
+                        ▶
+                    </button>
+                    <button class="cog-wheel" id="cog-wheel" title="Settings">
+                        ⚙️
+                    </button>
+                </div>
+            </div>
+            
+            <div class="drawer-content">
+                <!-- Navigation Items -->
+                <div class="nav-item active" data-page="upload">
+                    <span class="icon">📁</span>
+                    <span class="text">Upload Family Data</span>
+                </div>
+                
+                <div class="nav-item" data-page="visualization">
+                    <span class="icon">🎨</span>
+                    <span class="text">Visualization Settings</span>
+                </div>
+            </div>
         </div>
 
-        <div id="status-message"></div>
-
+        <!-- Main Content Area -->
         <div class="main-content">
-            <!-- File Upload Section -->
-            <div class="card">
-                <h2>📁 Upload Family Data</h2>
-                <form id="upload-form">
-                    <div class="form-group">
-                        <label for="file-input">Select Excel File:</label>
-                        <input type="file" id="file-input" class="form-control" accept=".xlsx,.xls,.xlsm" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="sheet-name">Sheet Name:</label>
-                        <input type="text" id="sheet-name" class="form-control" placeholder="Enter sheet name" required>
-                    </div>
-                    <button type="submit" class="btn" id="upload-btn">
-                        📤 Upload & Process
-                    </button>
-                </form>
+            <div class="header">
+                <h1>🌳 Family Tree Visualizer</h1>
             </div>
 
-            <!-- Visualization Settings -->
-            <div class="card">
-                <h2>🎨 Visualization Settings</h2>
-                <form id="visualize-form">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="generate-all" name="generate_all">
-                        <label for="generate-all">Generate Complete Tree</label>
-                    </div>
-                    
-                    <div id="specific-settings">
+            <div id="status-message"></div>
+
+            <!-- Upload Family Data Page -->
+            <div class="page-section active" id="upload-page">
+                <div class="card">
+                    <h2>📁 Upload Family Data</h2>
+                    <form id="upload-form">
                         <div class="form-group">
-                            <label for="start-person">Starting Person (optional):</label>
-                            <select id="start-person" class="form-control">
-                                <option value="">Select a person...</option>
-                            </select>
+                            <label for="file-input">Select Excel File:</label>
+                            <input type="file" id="file-input" class="form-control" accept=".xlsx,.xls,.xlsm" required>
                         </div>
-                        
                         <div class="form-group">
-                            <label for="generations-back">Generations Back (ancestors):</label>
-                            <input type="number" id="generations-back" class="form-control" value="0" min="0">
+                            <label for="sheet-name">Sheet Name:</label>
+                            <input type="text" id="sheet-name" class="form-control" placeholder="Enter sheet name" required>
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="generations-forward">Generations Forward (descendants):</label>
-                            <input type="number" id="generations-forward" class="form-control" value="0" min="0">
-                        </div>
-                    </div>
-                    
-                    <!-- Hidden inputs - always D3 with style 1 -->
-                    <input type="hidden" name="engine" value="d3">
-                    <input type="hidden" name="style" value="1">
-                    
-                    <button type="submit" class="btn" id="visualize-btn" disabled>
-                        🎯 Generate Visualization
-                    </button>
-                </form>
+                        <button type="submit" class="btn" id="upload-btn">
+                            📤 Upload & Process
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+
+
+            <!-- Visualization Display -->
+            <div class="visualization-container hidden" id="visualization-container">
+                <h2>🌳 Family Tree Visualization</h2>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Generating visualization...</p>
+                </div>
+                <iframe id="visualization-frame" class="visualization-frame hidden"></iframe>
             </div>
         </div>
+    </div>
 
-        <!-- Visualization Display -->
-        <div class="visualization-container hidden" id="visualization-container">
-            <h2>🌳 Family Tree Visualization</h2>
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p>Generating visualization...</p>
+    <!-- Settings Modal -->
+    <div class="settings-modal" id="settings-modal">
+        <div class="settings-content">
+            <div class="settings-header">
+                <h3 class="settings-title">Settings</h3>
+                <button class="close-settings" id="close-settings">&times;</button>
             </div>
-            <iframe id="visualization-frame" class="visualization-frame hidden"></iframe>
+            
+            <div class="setting-group">
+                <label for="menu-position">Menu Navigation:</label>
+                <select id="menu-position">
+                    <option value="left">Left</option>
+                    <option value="right">Right</option>
+                </select>
+            </div>
+            
+            <!-- Future settings can be added here -->
         </div>
+    </div>
 
+    <!-- Visualization Settings Modal -->
+    <div class="settings-modal" id="visualization-modal">
+        <div class="settings-content">
+            <div class="settings-header">
+                <h3 class="settings-title">🎨 Visualization Settings</h3>
+                <button class="close-settings" id="close-visualization">&times;</button>
+            </div>
+            
+            <form id="visualize-form">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="generate-all" name="generate_all">
+                    <label for="generate-all">Generate Complete Tree</label>
+                </div>
+                
+                <div id="specific-settings">
+                    <div class="form-group">
+                        <label for="start-person">Starting Person (required):</label>
+                        <select id="start-person" class="form-control">
+                            <option value="">Select a person...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="generations-back">Ancestors (generations up):</label>
+                        <input type="number" id="generations-back" class="form-control" value="2" min="0">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="generations-forward">Descendants (generations down):</label>
+                        <input type="number" id="generations-forward" class="form-control" value="2" min="0">
+                    </div>
+                </div>
+                
+                <!-- Hidden inputs - always D3 with style 1 -->
+                <input type="hidden" name="engine" value="d3">
+                <input type="hidden" name="style" value="1">
+                
+                <button type="submit" class="btn" id="visualize-btn" disabled>
+                    🎯 Generate Visualization
+                </button>
+            </form>
+        </div>
     </div>
 
     <script>
         // Global variables
         let currentCharacters = [];
         let currentStatus = {};
+        let menuPosition = 'left'; // Default position
 
         // DOM elements
+        const drawer = document.getElementById('drawer');
+        const drawerToggle = document.getElementById('drawer-toggle');
+        const cogWheel = document.getElementById('cog-wheel');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeSettings = document.getElementById('close-settings');
+        const visualizationModal = document.getElementById('visualization-modal');
+        const closeVisualization = document.getElementById('close-visualization');
+        const menuPositionSelect = document.getElementById('menu-position');
+        const navItems = document.querySelectorAll('.nav-item');
+        const pageSections = document.querySelectorAll('.page-section');
         const uploadForm = document.getElementById('upload-form');
         const visualizeForm = document.getElementById('visualize-form');
         const fileInput = document.getElementById('file-input');
@@ -323,6 +695,127 @@
         const loading = document.getElementById('loading');
         const visualizationFrame = document.getElementById('visualization-frame');
 
+        // Drawer toggle functionality
+        drawerToggle.addEventListener('click', () => {
+            if (drawer.classList.contains('collapsed')) {
+                drawer.classList.remove('collapsed');
+                drawer.classList.add('expanded');
+                drawerToggle.classList.add('expanded');
+                drawerToggle.title = 'Collapse Menu';
+            } else {
+                drawer.classList.remove('expanded');
+                drawer.classList.add('collapsed');
+                drawerToggle.classList.remove('expanded');
+                drawerToggle.title = 'Expand Menu';
+            }
+        });
+
+        // Cog wheel settings functionality
+        cogWheel.addEventListener('click', () => {
+            settingsModal.classList.add('active');
+        });
+
+        closeSettings.addEventListener('click', () => {
+            settingsModal.classList.remove('active');
+        });
+
+        // Close modal when clicking outside
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) {
+                settingsModal.classList.remove('active');
+            }
+        });
+
+        // Visualization modal functionality
+        closeVisualization.addEventListener('click', () => {
+            visualizationModal.classList.remove('active');
+        });
+
+        // Close visualization modal when clicking outside
+        visualizationModal.addEventListener('click', (e) => {
+            if (e.target === visualizationModal) {
+                visualizationModal.classList.remove('active');
+            }
+        });
+
+        // Function to open visualization modal with populated data
+        function openVisualizationModal() {
+            visualizationModal.classList.add('active');
+            // Only populate if we have characters loaded
+            if (currentCharacters && currentCharacters.length > 0) {
+                populateCharacterSelect();
+            } else {
+                // If no characters loaded, show a message in the dropdown
+                startPersonSelect.innerHTML = '<option value="">No data loaded. Please upload a file first.</option>';
+            }
+        }
+
+        // Menu position change
+        menuPositionSelect.addEventListener('change', () => {
+            const newPosition = menuPositionSelect.value;
+            if (newPosition !== menuPosition) {
+                menuPosition = newPosition;
+                updateMenuPosition();
+            }
+        });
+
+        function updateMenuPosition() {
+            // Remove current position classes
+            drawer.classList.remove('left', 'right');
+            
+            // Add new position class
+            drawer.classList.add(menuPosition);
+            
+            // Update drawer toggle arrow direction
+            if (drawer.classList.contains('expanded')) {
+                drawerToggle.textContent = menuPosition === 'left' ? '◀' : '▶';
+            } else {
+                drawerToggle.textContent = menuPosition === 'left' ? '▶' : '◀';
+            }
+            
+            // Update drawer toggle rotation
+            if (drawerToggle.classList.contains('expanded')) {
+                drawerToggle.classList.remove('expanded');
+                drawerToggle.classList.add('expanded');
+            }
+        }
+
+        // Navigation functionality
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                // Remove active class from all nav items and page sections
+                navItems.forEach(nav => nav.classList.remove('active'));
+                pageSections.forEach(page => page.classList.remove('active'));
+                
+                // Add active class to clicked nav item
+                item.classList.add('active');
+                
+                // Show corresponding page section
+                const pageId = item.getAttribute('data-page') + '-page';
+                const targetPage = document.getElementById(pageId);
+                if (targetPage) {
+                    targetPage.classList.add('active');
+                }
+                
+                // Handle special navigation cases
+                if (item.getAttribute('data-page') === 'upload') {
+                    // Close visualization when switching to upload page
+                    visualizationContainer.classList.add('hidden');
+                } else if (item.getAttribute('data-page') === 'visualization') {
+                    // Open visualization settings modal and populate character select
+                    openVisualizationModal();
+                }
+                
+                // Auto-close expanded menu when navigating
+                if (drawer.classList.contains('expanded')) {
+                    drawer.classList.remove('expanded');
+                    drawer.classList.add('collapsed');
+                    drawerToggle.classList.remove('expanded');
+                    drawerToggle.title = 'Expand Menu';
+                }
+            });
+        });
+
         // Event listeners
         uploadForm.addEventListener('submit', handleFileUpload);
         visualizeForm.addEventListener('submit', handleVisualization);
@@ -330,6 +823,23 @@
         
         // Initialize
         updateStatus();
+        updateMenuPosition();
+
+        // Auto-close menu when clicking anywhere on the page
+        document.addEventListener('click', (e) => {
+            // Don't close if clicking inside the drawer or on drawer controls
+            if (drawer.contains(e.target) || e.target === drawerToggle || e.target === cogWheel) {
+                return;
+            }
+            
+            // Close expanded menu if clicking elsewhere
+            if (drawer.classList.contains('expanded')) {
+                drawer.classList.remove('expanded');
+                drawer.classList.add('collapsed');
+                drawerToggle.classList.remove('expanded');
+                drawerToggle.title = 'Expand Menu';
+            }
+        });
 
         function showStatus(message, type = 'info') {
             statusMessage.innerHTML = `<div class="status ${type}">${message}</div>`;
@@ -353,11 +863,12 @@
                 })
                 .then(data => {
                     currentStatus = data;
-                    if (data.data_loaded) {
+                    if (data.data_loaded && data.current_file && data.character_count > 0) {
                         visualizeBtn.disabled = false;
                         showStatus(`Data loaded: ${data.current_file} (${data.character_count} characters)`, 'success');
                     } else {
                         visualizeBtn.disabled = true;
+                        // Don't show any message on page load if no real data is loaded
                     }
                 })
                 .catch(error => {
@@ -368,6 +879,13 @@
         function toggleSpecificSettings() {
             const isChecked = generateAllCheckbox.checked;
             specificSettings.style.display = isChecked ? 'none' : 'block';
+            
+            // Clear generation values when "Generate Complete Tree" is checked
+            if (isChecked) {
+                document.getElementById('generations-back').value = '2';
+                document.getElementById('generations-forward').value = '2';
+                startPersonSelect.value = '';
+            }
         }
 
         async function handleFileUpload(event) {
@@ -425,8 +943,13 @@
             startPersonSelect.innerHTML = '<option value="">Select a person...</option>';
             currentCharacters.forEach(character => {
                 const option = document.createElement('option');
-                option.value = character.id;
-                option.textContent = character.name;
+                option.value = character.id; // Use ID as value for unique identification
+                // Create a display name with distinguishing information
+                let displayName = `${character.name}`;
+                if (character.birthday) {
+                    displayName += ` (b. ${character.birthday})`;
+                }
+                option.textContent = displayName;
                 startPersonSelect.appendChild(option);
             });
         }
@@ -435,16 +958,36 @@
             event.preventDefault();
             
             const generateAll = generateAllCheckbox.checked;
-            const startPerson = startPersonSelect.value;
+            const startPerson = startPersonSelect.value; // This is now the person ID
             const generationsBack = parseInt(document.getElementById('generations-back').value) || 0;
             const generationsForward = parseInt(document.getElementById('generations-forward').value) || 0;
             const style = document.querySelector('input[name="style"]').value;
             const engine = document.querySelector('input[name="engine"]').value;
             
+            console.log('=== FRONTEND VISUALIZATION REQUEST ===');
+            console.log('generateAll:', generateAll, typeof generateAll);
+            console.log('startPerson (ID):', startPerson, typeof startPerson);
+            console.log('generationsBack:', generationsBack, typeof generationsBack);
+            console.log('generationsForward:', generationsForward, typeof generationsForward);
+            console.log('style:', style, typeof style);
+            console.log('engine:', engine, typeof engine);
+            console.log('=== END FRONTEND DEBUG ===');
+            
             if (!generateAll && !startPerson) {
                 showStatus('Please select a starting person or check "Generate Complete Tree"', 'error');
                 return;
             }
+            
+            // If no specific person is selected, treat as complete tree regardless of generation values
+            const finalGenerationsBack = (!generateAll && startPerson) ? generationsBack : 0;
+            const finalGenerationsForward = (!generateAll && startPerson) ? generationsForward : 0;
+            
+            console.log('=== FINAL PARAMETERS ===');
+            console.log('generateAll:', generateAll);
+            console.log('startPerson (ID):', startPerson);
+            console.log('finalGenerationsBack:', finalGenerationsBack);
+            console.log('finalGenerationsForward:', finalGenerationsForward);
+            console.log('=== END FINAL PARAMETERS ===');
             
             visualizeBtn.disabled = true;
             visualizeBtn.textContent = 'Generating...';
@@ -463,8 +1006,8 @@
                     body: JSON.stringify({
                         generate_all: generateAll,
                         start_person: startPerson,
-                        generations_back: generationsBack,
-                        generations_forward: generationsForward,
+                        generations_back: finalGenerationsBack,
+                        generations_forward: finalGenerationsForward,
                         style: style,
                         engine: engine
                     })
@@ -478,6 +1021,9 @@
                 
                 if (result.success) {
                     showStatus(`${result.engine} visualization generated successfully with ${result.character_count} characters`, 'success');
+                    
+                    // Close the modal so user can see the visualization
+                    visualizationModal.classList.remove('active');
                     
                     // Display the visualization
                     const filename = result.visualization_path.split('/').pop();

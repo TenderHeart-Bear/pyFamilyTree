@@ -58,7 +58,6 @@ class D3FamilyTreeViewer:
         print(f"DEBUG: Script exists: {os.path.exists(script_path)}")
         
         try:
-            try:
             # Load simplified template
             with open(template_path, 'r', encoding='utf-8') as f:
                 template_content = f.read()

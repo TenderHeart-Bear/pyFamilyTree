@@ -31,8 +31,7 @@ class RelGraph(ABC):
             self.output_dir = path_manager.get_session_dir()
             self.dot_path = path_manager.get_graph_base_path(name)
         
-        print(f"DEBUG: RelGraph initialized with output_dir: {self.output_dir}")
-        print(f"DEBUG: RelGraph dot_path: {self.dot_path}")
+
         
         # Initialize data storage
         self.all_characters: Dict = {}
@@ -166,9 +165,8 @@ class RelGraph(ABC):
             html_viewer = HTMLFamilyTreeViewer(svg_path, self.characters)
             
             # Generate HTML file
-            html_path = html_viewer.generate_html()
-            
-            print(f"DEBUG: Generated interactive HTML: {html_path}")
+            html_path = html_viewer.generate_html()           
+
             return html_path
             
         except ImportError as e:

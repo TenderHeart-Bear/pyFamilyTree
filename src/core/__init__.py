@@ -1,3 +1,1 @@
-"""
-Core business logic for the Family Tree application
-""" 
+# Core module for family tree application

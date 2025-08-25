@@ -12,10 +12,11 @@ from ..views.main_window import MainWindow
 from ..views.settings_dialog import SettingsDialog
 from ..views.visualization_dialog import VisualizationDialog
 from ..widgets.graph_viewer import GraphViewer
-from ...graph.family import FamilyTreeGraph
+from ...graph.d3_family import D3FamilyTreeGraph as FamilyTreeGraph
 from ...data.excel_converter import create_xml_from_excel_sheet
 import datetime
 import cairosvg
+import traceback
 
 class AppController:
     def __init__(self):
@@ -62,20 +63,15 @@ class AppController:
     def handle_load_data(self, file_path: str, sheet_name: str):
         """Handle loading data from Excel file"""
         try:
-            print(f"\nDEBUG: Loading data from Excel file: {file_path}")
-            print(f"DEBUG: Sheet name: {sheet_name}")
-            
             # Create XML directory based on Excel file and sheet names
             excel_base_name = os.path.splitext(os.path.basename(file_path))[0]
             xml_dir = os.path.join("assets", excel_base_name, sheet_name)
             
             # Create XML files from Excel
             xml_dir = create_xml_from_excel_sheet(file_path, sheet_name, xml_dir)
-            print(f"DEBUG: XML files created in: {xml_dir}")
             
             # Initialize data provider with the XML directory
             self._initialize_data_provider(xml_dir)
-            print("DEBUG: Data provider initialized")
             
             # Save last dataset information for reload functionality
             self._save_last_dataset(file_path, sheet_name, xml_dir)
@@ -87,10 +83,6 @@ class AppController:
                 )
             
         except Exception as e:
-            print(f"DEBUG ERROR: {str(e)}")
-            if hasattr(e, '__traceback__'):
-                import traceback
-                print(traceback.format_exc())
             if self.main_window:
                 self.main_window.show_error(f"Error loading data: {str(e)}")
                 # Still keep visualize enabled in case they want to try again
@@ -122,11 +114,25 @@ class AppController:
                     xml_data_dir=self.current_data_dir
                 )
             else:
-                # Generate specific view
+                # Generate specific view - need to convert name to ID
                 start_person = params.get('start_person', '')
+                start_person_id = None
+                
+                if start_person:
+                    # Find the ID for the given name
+                    for char_id, char_data in self.data_provider.get_all_characters().items():
+                        if char_data.get('name', '').lower() == start_person.lower():
+                            start_person_id = char_id
+                            break
+                    
+                    if not start_person_id:
+                        if self.main_window:
+                            self.main_window.show_error(f'Could not find person named "{start_person}"')
+                        return
+                
                 self.current_graph = FamilyTreeGraph(
                     xml_data_dir=self.current_data_dir,
-                    start_person_name=start_person if start_person else None,
+                    start_person_id=start_person_id,
                     generations_back=params.get('generations_back', 0),
                     generations_forward=params.get('generations_forward', 0)
                 )
@@ -168,22 +174,13 @@ class AppController:
         
         except Exception as e:
             error_msg = f"Error creating visualization: {str(e)}"
-            print(f"DEBUG ERROR: {error_msg}")
-            if hasattr(e, '__traceback__'):
-                import traceback
-                print("Stack trace:")
-                print(traceback.format_exc())
             if self.main_window:
                 self.main_window.show_error(error_msg)
     
     def _show_visualization(self, output_path: str, export_format: str):
         """Show the generated visualization in the main window"""
         try:
-            print(f"DEBUG: Showing visualization: {output_path}")
-            print(f"DEBUG: Export format: {export_format}")
-            
             if not self.main_window:
-                print("DEBUG: No main window available")
                 return
             
             # Import visualization widgets
@@ -576,7 +573,6 @@ class AppController:
         except Exception as e:
             print(f"DEBUG ERROR: Error loading settings: {str(e)}")
             if hasattr(e, '__traceback__'):
-                import traceback
                 print(traceback.format_exc())
             return {}
     
@@ -592,7 +588,6 @@ class AppController:
         except Exception as e:
             print(f"DEBUG ERROR: Error saving settings: {str(e)}")
             if hasattr(e, '__traceback__'):
-                import traceback
                 print(traceback.format_exc())
     
     def _apply_settings(self):
@@ -649,7 +644,6 @@ class AppController:
         except Exception as e:
             print(f"DEBUG ERROR: Error exporting visualization: {str(e)}")
             if hasattr(e, '__traceback__'):
-                import traceback
                 print(traceback.format_exc())
             if self.main_window:
                 self.main_window.show_error(f"Error exporting visualization: {str(e)}")
@@ -691,7 +685,6 @@ class AppController:
         except Exception as e:
             print(f"DEBUG ERROR: Error showing visualization: {str(e)}")
             if hasattr(e, '__traceback__'):
-                import traceback
                 print(traceback.format_exc())
             if self.main_window:
                 self.main_window.show_error(f"Error showing visualization: {str(e)}")
@@ -731,7 +724,6 @@ class AppController:
         except Exception as e:
             print(f"DEBUG ERROR: Error in auto-export: {str(e)}")
             if hasattr(e, '__traceback__'):
-                import traceback
                 print(traceback.format_exc())
     
     def _save_last_dataset(self, file_path: str, sheet_name: str, xml_dir: str):
@@ -746,13 +738,10 @@ class AppController:
             
             # Save to file
             path_manager.save_last_dataset(last_dataset_info)
-            
-            print("DEBUG: Last dataset information saved successfully")
-            
+                        
         except Exception as e:
-            print(f"DEBUG ERROR: Error saving last dataset information: {str(e)}")
+
             if hasattr(e, '__traceback__'):
-                import traceback
                 print(traceback.format_exc())
 
 class VisualizationDialog(ctk.CTkToplevel):

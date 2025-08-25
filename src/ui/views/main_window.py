@@ -6,15 +6,22 @@ from typing import Optional, Callable
 import os
 from tkinter import filedialog
 import tkinter as tk
+from ...config import SettingsManager
 
 class MainWindow(ctk.CTk):
-    def __init__(self):
+    def __init__(self, settings_manager: SettingsManager):
         super().__init__()
         
+        self.settings_manager = settings_manager
+        
         # Configure window
-        self.title("Family Tree Visualizer")
-        self.geometry("1200x800")
-        self.minsize(800, 600)  # Set minimum window size
+        window_settings = self.settings_manager.get('window.main')
+        self.title(window_settings['title'])
+        self.geometry(f"{window_settings['default_size']['width']}x{window_settings['default_size']['height']}")
+        self.minsize(
+            window_settings['min_size']['width'],
+            window_settings['min_size']['height']
+        )
         
         # Configure grid layout (3 columns: sidebar, content, and node info)
         self.grid_columnconfigure(0, weight=0)  # Sidebar - fixed width
@@ -22,87 +29,172 @@ class MainWindow(ctk.CTk):
         self.grid_columnconfigure(2, weight=0)  # Node info panel - fixed width
         self.grid_rowconfigure(0, weight=1)     # Full height
         
+        # Get layout settings
+        layout_settings = self.settings_manager.get('layout')
+        sidebar_settings = layout_settings['sidebar']
+        node_info_settings = layout_settings['node_info_panel']
+        content_settings = layout_settings['content']
+        
         # Create sidebar frame with widgets
-        self.sidebar_frame = ctk.CTkFrame(self, width=200, corner_radius=0)
+        self.sidebar_frame = ctk.CTkFrame(
+            self,
+            width=sidebar_settings['width'],
+            corner_radius=0
+        )
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
         self.sidebar_frame.grid_rowconfigure(5, weight=1)  # Space for status
         self.sidebar_frame.grid_propagate(False)  # Maintain fixed width
         
+        # Get font settings
+        font_settings = self.settings_manager.get('fonts')
+        
         self.logo_label = ctk.CTkLabel(
             self.sidebar_frame, 
             text="Family Tree\nVisualizer", 
-            font=ctk.CTkFont(size=20, weight="bold")
+            font=ctk.CTkFont(
+                size=font_settings['logo']['size'],
+                weight=font_settings['logo']['weight']
+            )
         )
-        self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="ew")
+        self.logo_label.grid(
+            row=0,
+            column=0,
+            padx=sidebar_settings['padding']['x'],
+            pady=(sidebar_settings['padding']['y'] * 2, sidebar_settings['padding']['y']),
+            sticky="ew"
+        )
         
         # Sidebar buttons
+        button_settings = {
+            'height': 40,
+            'font': ctk.CTkFont(
+                size=font_settings['normal']['size'],
+                weight=font_settings['normal']['weight']
+            )
+        }
+        
         self.load_data_button = ctk.CTkButton(
             self.sidebar_frame, 
             text="Load Data",
             command=self.load_data,
-            height=40
+            **button_settings
         )
-        self.load_data_button.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+        self.load_data_button.grid(
+            row=1,
+            column=0,
+            padx=sidebar_settings['padding']['x'],
+            pady=sidebar_settings['padding']['y'],
+            sticky="ew"
+        )
         
         self.visualize_button = ctk.CTkButton(
             self.sidebar_frame, 
             text="Visualize Tree",
             command=self.visualize_tree,
             state="disabled",  # Initially disabled until data is loaded
-            height=40
+            **button_settings
         )
-        self.visualize_button.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
+        self.visualize_button.grid(
+            row=2,
+            column=0,
+            padx=sidebar_settings['padding']['x'],
+            pady=sidebar_settings['padding']['y'],
+            sticky="ew"
+        )
         
         self.settings_button = ctk.CTkButton(
             self.sidebar_frame, 
             text="Settings",
             command=self.open_settings,
-            height=40
+            **button_settings
         )
-        self.settings_button.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
+        self.settings_button.grid(
+            row=3,
+            column=0,
+            padx=sidebar_settings['padding']['x'],
+            pady=sidebar_settings['padding']['y'],
+            sticky="ew"
+        )
         
         # Add reload button
         self.reload_button = ctk.CTkButton(
             self.sidebar_frame,
             text="Reload",
             command=self.reload_visualization,
-            height=40
+            **button_settings
         )
-        self.reload_button.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+        self.reload_button.grid(
+            row=4,
+            column=0,
+            padx=sidebar_settings['padding']['x'],
+            pady=sidebar_settings['padding']['y'],
+            sticky="ew"
+        )
         
         # Add open in browser button
         self.open_browser_button = ctk.CTkButton(
             self.sidebar_frame,
             text="Open in Browser",
             command=self.open_in_browser,
-            height=40,
-            state="disabled"  # Initially disabled
+            state="disabled",  # Initially disabled
+            **button_settings
         )
-        self.open_browser_button.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
+        self.open_browser_button.grid(
+            row=5,
+            column=0,
+            padx=sidebar_settings['padding']['x'],
+            pady=sidebar_settings['padding']['y'],
+            sticky="ew"
+        )
         
         # Status label with scrollable text
         self.status_frame = ctk.CTkFrame(self.sidebar_frame)
-        self.status_frame.grid(row=6, column=0, padx=20, pady=10, sticky="nsew")
+        self.status_frame.grid(
+            row=6,
+            column=0,
+            padx=sidebar_settings['padding']['x'],
+            pady=sidebar_settings['padding']['y'],
+            sticky="nsew"
+        )
         self.status_frame.grid_rowconfigure(0, weight=1)
         self.status_frame.grid_columnconfigure(0, weight=1)
         
         self.status_label = ctk.CTkLabel(
             self.status_frame,
             text="No data loaded",
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(
+                size=font_settings['status']['size'],
+                weight=font_settings['status']['weight']
+            ),
             wraplength=160,
             justify="left"
         )
-        self.status_label.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        self.status_label.grid(
+            row=0,
+            column=0,
+            padx=10,
+            pady=10,
+            sticky="nsew"
+        )
         
         # Create main content area
         self.content_frame = ctk.CTkFrame(self, corner_radius=0)
-        self.content_frame.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
+        self.content_frame.grid(
+            row=0,
+            column=1,
+            sticky="nsew",
+            padx=content_settings['padding']['x'],
+            pady=content_settings['padding']['y']
+        )
         self.content_frame.grid_columnconfigure(0, weight=1)
         self.content_frame.grid_rowconfigure(0, weight=1)
         
         # Create node info panel on the right side
-        self.node_info_frame = ctk.CTkFrame(self, width=300, corner_radius=0)
+        self.node_info_frame = ctk.CTkFrame(
+            self,
+            width=node_info_settings['width'],
+            corner_radius=0
+        )
         self.node_info_frame.grid(row=0, column=2, sticky="nsew", padx=0, pady=0)
         self.node_info_frame.grid_propagate(False)  # Maintain fixed width
         
@@ -110,31 +202,58 @@ class MainWindow(ctk.CTk):
         self.node_info_title = ctk.CTkLabel(
             self.node_info_frame,
             text="Node Information",
-            font=ctk.CTkFont(size=16, weight="bold")
+            font=ctk.CTkFont(
+                size=font_settings['section_title']['size'],
+                weight=font_settings['section_title']['weight']
+            )
         )
-        self.node_info_title.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="ew")
+        self.node_info_title.grid(
+            row=0,
+            column=0,
+            padx=20,
+            pady=(20, 10),
+            sticky="ew"
+        )
         
         # Node info text area
         self.node_info_text = ctk.CTkTextbox(
             self.node_info_frame,
-            width=280,
-            height=400,
-            font=ctk.CTkFont(size=12)
+            width=node_info_settings['width'] - 20,
+            height=node_info_settings['text_height'],
+            font=ctk.CTkFont(
+                size=font_settings['normal']['size'],
+                weight=font_settings['normal']['weight']
+            )
         )
-        self.node_info_text.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="nsew")
+        self.node_info_text.grid(
+            row=1,
+            column=0,
+            padx=20,
+            pady=(0, 20),
+            sticky="nsew"
+        )
         self.node_info_frame.grid_rowconfigure(1, weight=1)
         
         # Placeholder for tree visualization
         self.tree_view = ctk.CTkLabel(
             self.content_frame,
             text="Tree Visualization will appear here\n\nClick 'Load Data' to begin",
-            font=ctk.CTkFont(size=16),
+            font=ctk.CTkFont(
+                size=font_settings['normal']['size'],
+                weight=font_settings['normal']['weight']
+            ),
             text_color="gray"
         )
-        self.tree_view.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
+        self.tree_view.grid(
+            row=0,
+            column=0,
+            padx=content_settings['padding']['x'],
+            pady=content_settings['padding']['y'],
+            sticky="nsew"
+        )
         
         # Set default appearance mode and color theme
-        ctk.set_appearance_mode("System")
+        ctk.set_appearance_mode(self.settings_manager.get('appearance.theme', 'System'))
         ctk.set_default_color_theme("blue")
         
         # Callback handlers
@@ -150,7 +269,7 @@ class MainWindow(ctk.CTk):
     def on_closing(self):
         """Handle window closing"""
         try:
-            print("DEBUG: Main window closing")
+    
             self.destroy()
         except Exception as e:
             print(f"DEBUG: Error during window close: {e}")
@@ -171,9 +290,13 @@ class MainWindow(ctk.CTk):
     def load_data(self):
         """Handle loading data from Excel/XML files"""
         try:
+            file_formats = self.settings_manager.get('files.supported_formats')
             file_path = filedialog.askopenfilename(
                 title="Select Excel File",
-                filetypes=[("Excel files", "*.xlsx *.xlsm"), ("All files", "*.*")]
+                filetypes=[
+                    ("Excel files", " ".join(file_formats['excel'])),
+                    ("All files", "*.*")
+                ]
             )
             
             if file_path:
@@ -220,18 +343,21 @@ class MainWindow(ctk.CTk):
         try:
             self.status_label.configure(text=message)
             self.visualize_button.configure(state="normal" if enable_visualize else "disabled")
-            print(f"DEBUG: Status updated: {message}")
+
         except Exception as e:
             print(f"DEBUG: Error updating status: {e}")
     
     def show_error(self, message: str):
         """Show error dialog"""
         try:
-            print(f"DEBUG: Showing error: {message}")
-            # Create a simple error dialog
+
+            error_settings = self.settings_manager.get('window.error_dialog')
+            font_settings = self.settings_manager.get('fonts')
+            
+            # Create error dialog
             error_window = ctk.CTkToplevel(self)
             error_window.title("Error")
-            error_window.geometry("400x200")
+            error_window.geometry(f"{error_settings['size']['width']}x{error_settings['size']['height']}")
             error_window.transient(self)
             error_window.grab_set()
             
@@ -245,7 +371,10 @@ class MainWindow(ctk.CTk):
             error_label = ctk.CTkLabel(
                 error_window,
                 text=message,
-                font=ctk.CTkFont(size=12),
+                font=ctk.CTkFont(
+                    size=font_settings['error']['size'],
+                    weight=font_settings['error']['weight']
+                ),
                 wraplength=350,
                 justify="left"
             )
@@ -256,7 +385,11 @@ class MainWindow(ctk.CTk):
                 error_window,
                 text="OK",
                 command=error_window.destroy,
-                width=100
+                width=100,
+                font=ctk.CTkFont(
+                    size=font_settings['normal']['size'],
+                    weight=font_settings['normal']['weight']
+                )
             )
             ok_button.pack(pady=10)
             
@@ -269,10 +402,7 @@ class MainWindow(ctk.CTk):
     def set_tree_view(self, widget: ctk.CTkBaseClass):
         """Replace the tree view placeholder with actual visualization"""
         try:
-            print("\nDEBUG: set_tree_view called")
-            print(f"DEBUG: Content frame exists: {hasattr(self, 'content_frame')}")
-            print(f"DEBUG: Widget type: {type(widget)}")
-            
+                        
             if hasattr(self, 'tree_view') and self.tree_view:
                 print(f"DEBUG: Destroying old tree view: {type(self.tree_view)}")
                 try:
@@ -280,15 +410,22 @@ class MainWindow(ctk.CTk):
                 except Exception as e:
                     print(f"DEBUG: Error destroying old tree view: {e}")
             
+            content_settings = self.settings_manager.get('layout.content')
             print(f"DEBUG: Setting new tree view: {type(widget)}")
             self.tree_view = widget
-            self.tree_view.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+            self.tree_view.grid(
+                row=0,
+                column=0,
+                sticky="nsew",
+                padx=content_settings['padding']['x'],
+                pady=content_settings['padding']['y']
+            )
             
             # Force update of the layout
             self.content_frame.update_idletasks()
             self.update_idletasks()
             
-            print("DEBUG: set_tree_view complete\n")
+
             
         except Exception as e:
             print(f"DEBUG: Error in set_tree_view: {e}")
@@ -358,11 +495,16 @@ class MainWindow(ctk.CTk):
             y = self.winfo_y() + (self.winfo_height() - dialog.winfo_height()) // 2
             dialog.geometry(f"+{x}+{y}")
             
+            font_settings = self.settings_manager.get('fonts')
+            
             # Coming soon message
             title_label = ctk.CTkLabel(
                 dialog,
                 text="🚧 Coming Soon! 🚧",
-                font=ctk.CTkFont(size=24, weight="bold"),
+                font=ctk.CTkFont(
+                    size=font_settings['section_title']['size'] + 10,
+                    weight="bold"
+                ),
                 text_color="orange"
             )
             title_label.pack(padx=20, pady=(20, 10))
@@ -370,7 +512,10 @@ class MainWindow(ctk.CTk):
             message_label = ctk.CTkLabel(
                 dialog,
                 text="Node Detail View Feature\n\nThis feature will allow you to:\n• View detailed person information\n• Edit person details\n• Add/modify relationships\n• View family photos\n• Add notes and stories",
-                font=ctk.CTkFont(size=14),
+                font=ctk.CTkFont(
+                    size=font_settings['normal']['size'],
+                    weight=font_settings['normal']['weight']
+                ),
                 justify="left"
             )
             message_label.pack(padx=20, pady=10, expand=True)
@@ -379,7 +524,10 @@ class MainWindow(ctk.CTk):
                 node_info_label = ctk.CTkLabel(
                     dialog,
                     text=f"Selected Node: {node_id}",
-                    font=ctk.CTkFont(size=12),
+                    font=ctk.CTkFont(
+                        size=font_settings['status']['size'],
+                        weight=font_settings['status']['weight']
+                    ),
                     text_color="gray"
                 )
                 node_info_label.pack(padx=20, pady=(0, 10))
@@ -389,7 +537,11 @@ class MainWindow(ctk.CTk):
                 dialog,
                 text="OK",
                 command=dialog.destroy,
-                width=100
+                width=100,
+                font=ctk.CTkFont(
+                    size=font_settings['normal']['size'],
+                    weight=font_settings['normal']['weight']
+                )
             )
             ok_button.pack(pady=(10, 20))
             
@@ -402,4 +554,4 @@ class MainWindow(ctk.CTk):
             print(f"DEBUG: Node clicked: {node_id}")
             self.show_coming_soon_dialog(node_id)
         except Exception as e:
-            print(f"DEBUG: Error handling node click: {e}") 
+            print(f"DEBUG: Error handling node click: {e}")
