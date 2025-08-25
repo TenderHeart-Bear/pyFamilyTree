@@ -145,6 +145,9 @@ def visualize():
         generate_all = data.get('generate_all', False)
         engine = data.get('engine', 'classic')  # New parameter for engine selection
         
+        # Debug logging
+        print(f"DEBUG: Visualization request - generate_all: {generate_all}, start_person: '{start_person}', generations_back: {generations_back}, generations_forward: {generations_forward}")
+        
         # Create new session for this visualization
         session_dir = path_manager.create_session()
         
@@ -162,8 +165,7 @@ def visualize():
         output_format = 'html'
         
         # Create graph with appropriate parameters
-        if generate_all:
-            # Generate complete tree
+        if generate_all or (not start_person and generations_back == 0 and generations_forward == 0):
             # Generate complete tree
             current_graph = graph_class(
                 xml_data_dir=current_data_dir,
@@ -175,16 +177,33 @@ def visualize():
                 characters=all_characters,  # Pass loaded data
                 id_to_name_map=id_to_name_map
             )
-        else:
-            # Generate specific view
-            # Generate specific view
+        elif start_person:
+            # Generate specific view - start_person is now the ID
+            start_person_id = start_person
+            
+            # Verify the person ID exists in our data
+            if start_person_id not in all_characters:
+                return jsonify({'error': f'Could not find person with ID "{start_person_id}". Available IDs: {list(all_characters.keys())[:5]}'}), 400
+            
             current_graph = graph_class(
                 xml_data_dir=current_data_dir,
                 output_dir=session_dir,
-                start_person_id=start_person if start_person else None,
+                start_person_id=start_person_id,
                 generations_back=generations_back,
                 generations_forward=generations_forward,
                 output_format=output_format,
+                characters=all_characters,  # Pass loaded data
+                id_to_name_map=id_to_name_map
+            )
+        else:
+            # No person selected - treat as complete tree regardless of generation values
+            current_graph = graph_class(
+                xml_data_dir=current_data_dir,
+                output_dir=session_dir,
+                output_format=output_format,
+                start_person_id=None,  # Explicitly set to None for complete tree
+                generations_back=0,  # Force to 0 when no person selected
+                generations_forward=0,  # Force to 0 when no person selected
                 characters=all_characters,  # Pass loaded data
                 id_to_name_map=id_to_name_map
             )

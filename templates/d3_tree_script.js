@@ -50,48 +50,56 @@ function buildSimplifiedTree() {
     console.group('🌳 Building Simplified Family Tree');
     console.log('Total people:', Object.keys(characterData).length);
     
-    // Step 1: Use Python's root ancestor detection (Single Source of Truth)
-    // Strategy: Read the is_root_ancestor flag that Python calculated
-    
-    console.log('🧠 Using Python-calculated root ancestor data...');
-    
-    // Extract root ancestors from Python's calculation
-    const rootAncestors = [];
+    // Step 1: Python has already calculated the root ancestor(s) for us
+    // We just need to find the people marked with is_root_ancestor = true
+    const pythonRootAncestors = [];
     for (const [id, person] of Object.entries(characterData)) {
         if (person.is_root_ancestor === true) {
-            rootAncestors.push(id);
+            pythonRootAncestors.push(id);
             console.log(`✅ Python identified root ancestor: ${person.name} (${id})`);
         }
     }
     
-    console.log(`🎯 Root ancestors from Python: ${rootAncestors.length}`, 
-        rootAncestors.map(id => `${characterData[id]?.name} (${id})`));
+    console.log(`🧠 Using Python-calculated root ancestors: ${pythonRootAncestors.length}`);
     
-    // Use rootAncestors directly
-    const finalRoots = rootAncestors;
-    
-    // Step 3: Build trees for each root
-    const rootTrees = [];
-    const processed = new Set();
-    
-    for (const rootId of finalRoots) {
-        const tree = buildPersonTree(rootId, processed);
-            if (tree) {
-            rootTrees.push(tree);
-        }
+    if (pythonRootAncestors.length === 0) {
+        console.error('❌ No root ancestors found by Python. Cannot build tree.');
+        console.groupEnd();
+        return;
     }
     
-    // Step 4: Create virtual root
-    const virtualRoot = {
-        id: "virtual_root",
-        name: "Family Tree",
-        children: rootTrees
-    };
+    // Step 2: Build the tree structure from Python's root ancestor(s)
+    let treeData;
     
-    console.log(`Created ${rootTrees.length} family trees`);
+    if (pythonRootAncestors.length === 1) {
+        // Single root ancestor - build unified tree
+        const rootPerson = pythonRootAncestors[0];
+        console.log(`🌳 Building single unified tree from Python root: ${characterData[rootPerson]?.name}`);
+        treeData = buildPersonTree(rootPerson, new Set());
+    } else {
+        // Multiple root ancestors - this is a complete tree view
+        console.log(`🌳 Building complete tree with ${pythonRootAncestors.length} root branches from Python`);
+        const rootTrees = [];
+        const processed = new Set();
+        
+        for (const rootId of pythonRootAncestors) {
+            if (!processed.has(rootId)) {
+                const rootTree = buildPersonTree(rootId, processed);
+                rootTrees.push(rootTree);
+            }
+        }
+        
+        treeData = {
+            name: "Complete Family Tree",
+            children: rootTrees
+        };
+    }
+    
+    console.log('Created tree with', pythonRootAncestors.length, 'root element(s)');
     console.groupEnd();
     
-    return virtualRoot;
+    // Return the tree data for the caller to use
+    return treeData;
 }
 
 function buildPersonTree(personId, processed) {
@@ -157,7 +165,7 @@ function buildPersonTree(personId, processed) {
     console.log(`${person.name} has ${node.children.length} children`);
         return node;
     }
-    
+
 // =================================================
 // SIMPLIFIED LAYOUT & DRAWING
 // =================================================

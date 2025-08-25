@@ -114,11 +114,25 @@ class AppController:
                     xml_data_dir=self.current_data_dir
                 )
             else:
-                # Generate specific view
+                # Generate specific view - need to convert name to ID
                 start_person = params.get('start_person', '')
+                start_person_id = None
+                
+                if start_person:
+                    # Find the ID for the given name
+                    for char_id, char_data in self.data_provider.get_all_characters().items():
+                        if char_data.get('name', '').lower() == start_person.lower():
+                            start_person_id = char_id
+                            break
+                    
+                    if not start_person_id:
+                        if self.main_window:
+                            self.main_window.show_error(f'Could not find person named "{start_person}"')
+                        return
+                
                 self.current_graph = FamilyTreeGraph(
                     xml_data_dir=self.current_data_dir,
-                    start_person_name=start_person if start_person else None,
+                    start_person_id=start_person_id,
                     generations_back=params.get('generations_back', 0),
                     generations_forward=params.get('generations_forward', 0)
                 )

@@ -98,10 +98,31 @@ class D3FamilyTreeGraph(RelGraph):
         # Add the starting person and their spouse
         processed = set()
         self._add_person_and_relatives(start_person_id, generations_back, generations_forward, processed, is_starting_person=True)
+        
+        # For person-specific views, calculate the actual root ancestor based on the starting person
+        # This ensures we get one unified tree instead of multiple disconnected branches
+        if start_person_id in self.characters:
+            # Find the person with the most generations back from the starting person
+            # This will be our root ancestor for the unified tree
+            root_ancestor_id = self._find_actual_root_ancestor(start_person_id, generations_back)
+            
+            # Clear any existing root ancestor flags from other characters to prevent confusion
+            for char_id, char_data in self.characters.items():
+                if char_id != start_person_id:
+                    char_data['is_root_ancestor'] = False
+            
+            # Set only the calculated root ancestor as the root
+            if root_ancestor_id in self.characters:
+                self.characters[root_ancestor_id]['is_root_ancestor'] = True
+                print(f"✅ Set root ancestor for person-specific view: {self.characters[root_ancestor_id].get('name', 'Unknown')} ({root_ancestor_id})")
+            else:
+                # Fallback: use the starting person as root
+                self.characters[start_person_id]['is_root_ancestor'] = True
+                print(f"⚠️ Fallback: using starting person as root: {self.characters[start_person_id].get('name', 'Unknown')} ({start_person_id})")
     
     def _add_person_and_relatives(self, person_id: str, generations_back: int, 
                                  generations_forward: int, processed: Set[str], is_starting_person: bool = False):
-        """Recursively add person and their relatives"""
+        """Recursively add person and their relatives - ONLY direct line, no siblings/cousins"""
         
         # Skip if already processed or not found
         if person_id not in self.all_characters:
@@ -133,7 +154,7 @@ class D3FamilyTreeGraph(RelGraph):
             father_id = person_data.get('father_id')
             mother_id = person_data.get('mother_id')
             
-            # Process parents with reduced generations_back and no generations_forward
+            # Only add parents, don't add their other children (siblings)
             if father_id:
                 self._add_person_and_relatives(father_id, generations_back - 1, 0, processed, False)
             
@@ -341,3 +362,35 @@ class D3FamilyTreeGraph(RelGraph):
             "death_date": character.get('death_date', ''),
             "marriage_date": character.get('marriage_date', '')
         } 
+
+    def _find_actual_root_ancestor(self, start_person_id: str, generations_back: int) -> str:
+        """
+        Find the actual root ancestor for a person-specific view.
+        This calculates who should be the root based on the starting person and generation limits.
+        """
+        if generations_back == 0:
+            # No generations back, starting person is the root
+            return start_person_id
+        
+        # Start from the starting person and go back the specified number of generations
+        current_id = start_person_id
+        generations_traversed = 0
+        
+        while generations_traversed < generations_back and current_id in self.all_characters:
+            person_data = self.all_characters[current_id]
+            father_id = person_data.get('father_id')
+            mother_id = person_data.get('mother_id')
+            
+            # Check if we can go back further
+            if father_id and father_id in self.all_characters:
+                current_id = father_id
+                generations_traversed += 1
+            elif mother_id and mother_id in self.all_characters:
+                current_id = mother_id
+                generations_traversed += 1
+            else:
+                # Can't go back further, this is our root
+                break
+        
+        # Return the person we ended up at (the oldest ancestor in our range)
+        return current_id 
